@@ -1,24 +1,25 @@
-# Use a lightweight OpenJDK 17 image
-FROM openjdk:17-jdk-slim
+# Use a lightweight OpenJDK 17 image with Maven installed
+FROM maven:3.9.3-eclipse-temurin-17 AS build
 
 # Set working directory
 WORKDIR /app
 
-# Copy Maven Wrapper and pom.xml
-COPY .mvn/ .mvn
-COPY mvnw pom.xml ./
+# Copy pom.xml first to leverage Docker cache
+COPY pom.xml .
 
-# Copy the rest of the backend source code
+# Copy the source code
 COPY src ./src
 
-# Make Maven wrapper executable
-RUN chmod +x mvnw
+# Build the Spring Boot app (skip tests for faster build)
+RUN mvn clean package -DskipTests
 
-# Build the Spring Boot app
-RUN ./mvnw clean package -DskipTests
+# Use a slim OpenJDK image for running the app
+FROM eclipse-temurin:17-jdk-focal
 
-# Copy the built jar to a standard location
-RUN cp target/certiquest-backend.jar app.jar
+WORKDIR /app
+
+# Copy the built jar from the build stage
+COPY --from=build /app/target/certiquest-backend.jar app.jar
 
 # Expose default Spring Boot port
 EXPOSE 8080
