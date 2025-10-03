@@ -31,7 +31,7 @@ export const fetchUserPoints = createAsyncThunk(
 const pointsSlice = createSlice({
   name: 'points',
   initialState: {
-    points: null,   // avoid hardcoding default
+    points: 10,   // avoid hardcoding default
     plan: 'FREE',
     loading: false,
     error: null,
