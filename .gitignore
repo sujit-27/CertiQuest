@@ -32,6 +32,12 @@ hs_err_pid*
 .mvn/
 .settings/
 *.db
+# Spring Boot properties (sensitive info)
+CertiQuest_Backend/CertiQuest/src/main/resources/application.properties
+CertiQuest_Backend/src/main/resources/application.properties
+CertiQuest_Backend/target/classes/application.properties
+
+
 
 # =========================
 # Docker
