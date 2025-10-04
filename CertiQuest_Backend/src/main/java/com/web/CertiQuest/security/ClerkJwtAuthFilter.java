@@ -38,12 +38,16 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
         // Skip non-secured endpoints
         String uri = request.getRequestURI();
         if (uri.startsWith("/api/v1.0/webhooks") ||
-                uri.startsWith("/api/certificates/download") ||
-                uri.startsWith("/api/certificates/upload") ||
-                uri.startsWith("/api/leaderboard") ||
-                uri.startsWith("/api/fcm") ||
-                uri.startsWith("/api/quiz")
-        ) {
+            uri.startsWith("/api/certificates/download") ||
+            uri.startsWith("/api/certificates/upload") ||
+            uri.startsWith("/api/leaderboard") ||
+            uri.startsWith("/api/fcm")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // Allow preflight OPTIONS requests
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -66,7 +70,6 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
             String headerJson = new String(Base64.getUrlDecoder().decode(tokenParts[0]));
             ObjectMapper mapper = new ObjectMapper();
             JsonNode headerNode = mapper.readTree(headerJson);
-
             if (!headerNode.has("kid")) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Token header missing 'kid'");
                 return;
@@ -91,10 +94,9 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
                     new UsernamePasswordAuthenticationToken(
                             clerkId,
                             null,
-                            Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")) // Adjust roles here
+                            Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")) // Adjust role
                     );
-
-            SecurityContextHolder.getContext().setAuthentication((authenticationToken));
+            SecurityContextHolder.getContext().setAuthentication(authenticationToken);
 
             filterChain.doFilter(request, response);
 
