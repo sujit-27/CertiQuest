@@ -33,6 +33,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/").permitAll()
                         .requestMatchers("/api/v1.0/webhooks/**","/api/quiz/**","/api/quiz","/api/certificates/**","/api/certificates/download/**","/api/leaderboard/**","/api/fcm/**").permitAll()
                         .anyRequest().authenticated()
                 )
@@ -47,7 +48,7 @@ public class SecurityConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
-                "certi-quest-kohl.vercel.app",
+                "https://certi-quest-kohl.vercel.app",
                 "https://certiquest.up.railway.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
