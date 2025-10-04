@@ -79,14 +79,16 @@ const Certificates = () => {
 
                   {cert.certificateUrl && (
                     <a
-                      href={cert.certificateUrl}
-                      download
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="mt-3 inline-block text-indigo-700 font-semibold hover:underline"
-                    >
-                      Download Certificate
-                    </a>
+  href={`https://certiquest.up.railway.app${cert.certificateUrl}`} // prepend your deployed domain
+  download
+  rel="noopener noreferrer"
+  onClick={(e) => e.stopPropagation()}
+  className="mt-3 inline-block text-indigo-700 font-semibold hover:underline"
+>
+  Download Certificate
+</a>
+
+
                   )}
                 </li>
               ))}
