@@ -88,6 +88,24 @@ public class QuizQuestionService {
         return text;
     }
 
+    public List<QuizQuestion> generateQuestions(String category, String difficulty, int noOfQuestions) {
+        String prompt = buildPrompt(category, difficulty, noOfQuestions);
+        String response = callCohereAPI(prompt);
+
+        try {
+            List<QuizQuestion> questions = objectMapper.readValue(response, new TypeReference<>() {
+            });
+            for (QuizQuestion q : questions) {
+                q.setCategory(category);
+                q.setDifficultyLevel(difficulty);
+            }
+            quizQuestionDao.saveAll(questions);
+            return questions;
+        } catch (Exception e) {
+            throw new RuntimeException("Error parsing Cohere response: " + response, e);
+        }
+    }
+
     public List<QuizQuestion> getOrCreateQuiz(String category, String difficulty, int noOfQuestions) {
         List<QuizQuestion> existing = quizQuestionDao.findByCategoryAndDifficultyLevel(category, difficulty);
         if (!existing.isEmpty() && existing.size() >= noOfQuestions)
