@@ -14,6 +14,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class QuizQuestionService {
@@ -35,7 +36,7 @@ public class QuizQuestionService {
         return String.format("""
                 Generate %d multiple-choice quiz questions in the category '%s' with difficulty '%s'.
                 Each question must have 4 unique options.
-                Format the response strictly as a valid JSON array like this:
+                Format the response strictly as a valid JSON array like:
                 [
                   {
                     "question": "Which planet is known as the Red Planet?",
@@ -54,7 +55,7 @@ public class QuizQuestionService {
             headers.set("Authorization", "Bearer " + cohereApiKey);
 
             Map<String, Object> requestBody = Map.of(
-                    "model", "command-nightly",   // or "command-r" / "command-r-plus"
+                    "model", "command-nightly",
                     "message", prompt,
                     "max_tokens", 1500,
                     "temperature", 0.7
@@ -81,53 +82,27 @@ public class QuizQuestionService {
     private String cleanJsonResponse(String text) {
         if (text == null) return null;
         text = text.trim();
-        if (text.startsWith("```json")) {
-            text = text.substring("```json".length()).trim();
-        } else if (text.startsWith("```")) {
-            text = text.substring(3).trim();
-        }
-        if (text.endsWith("```")) {
-            text = text.substring(0, text.length() - 3).trim();
-        }
+        if (text.startsWith("```json")) text = text.substring(7).trim();
+        else if (text.startsWith("```")) text = text.substring(3).trim();
+        if (text.endsWith("```")) text = text.substring(0, text.length() - 3).trim();
         return text;
-    }
-
-    public List<QuizQuestion> generateQuestions(String category, String difficulty, int noOfQuestions) {
-        String prompt = buildPrompt(category, difficulty, noOfQuestions);
-        String response = callCohereAPI(prompt);
-
-        try {
-            List<QuizQuestion> questions = objectMapper.readValue(response, new TypeReference<>() {
-            });
-            for (QuizQuestion q : questions) {
-                q.setCategory(category);
-                q.setDifficultyLevel(difficulty);
-            }
-            quizQuestionDao.saveAll(questions);
-            return questions;
-        } catch (Exception e) {
-            throw new RuntimeException("Error parsing Cohere response: " + response, e);
-        }
     }
 
     public List<QuizQuestion> getOrCreateQuiz(String category, String difficulty, int noOfQuestions) {
         List<QuizQuestion> existing = quizQuestionDao.findByCategoryAndDifficultyLevel(category, difficulty);
-
-        if (!existing.isEmpty() && existing.size() >= noOfQuestions) {
+        if (!existing.isEmpty() && existing.size() >= noOfQuestions)
             return existing.subList(0, noOfQuestions);
-        }
 
         String prompt = buildPrompt(category, difficulty, noOfQuestions);
         String response = callCohereAPI(prompt);
 
         try {
-            List<QuizQuestion> newQuestions = objectMapper.readValue(response, new TypeReference<>() {
-            });
+            List<QuizQuestion> newQuestions = objectMapper.readValue(response, new TypeReference<>() {});
             for (QuizQuestion q : newQuestions) {
                 q.setCategory(category);
                 q.setDifficultyLevel(difficulty);
             }
-            quizQuestionDao.saveAll(newQuestions);
+            // Do NOT save yet; QuizService will assign quiz and save
             return newQuestions;
         } catch (Exception e) {
             throw new RuntimeException("Error parsing Cohere response: " + response, e);
@@ -135,12 +110,9 @@ public class QuizQuestionService {
     }
 
     public List<QuizQuestion> extractQuestionsFromText(String text, String category, String difficulty) {
-        // Validate input
-        if (text == null || text.trim().isEmpty()) {
+        if (text == null || text.trim().isEmpty())
             throw new IllegalArgumentException("Cannot extract questions: PDF contains no text.");
-        }
 
-        // Build prompt for Cohere
         String prompt = String.format("""
             Extract quiz questions from the following text in JSON format.
             Include question, 4 options, and correctAnswer.
@@ -156,32 +128,29 @@ public class QuizQuestionService {
             %s
             """, text);
 
+        String response = callCohereAPI(prompt);
+
         try {
-            // Call Cohere API (implement your callCohereAPI method)
-            String response = callCohereAPI(prompt);
-
-            // Parse response
-            List<QuizQuestion> questions = objectMapper.readValue(response, new TypeReference<>() {
-            });
-
-            // Throw if Cohere returned empty array
-            if (questions == null || questions.isEmpty()) {
+            List<QuizQuestion> questions = objectMapper.readValue(response, new TypeReference<>() {});
+            if (questions == null || questions.isEmpty())
                 throw new RuntimeException("Cohere returned no questions from PDF text.");
-            }
 
-            // Set category & difficulty
             for (QuizQuestion q : questions) {
                 q.setCategory(category != null ? category : "General");
                 q.setDifficultyLevel(difficulty != null ? difficulty : "Medium");
             }
-
-            // Save all extracted questions
-            quizQuestionDao.saveAll(questions);
-
             return questions;
-
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse Cohere response: " + e.getMessage(), e);
         }
+    }
+
+    public void saveAllQuestions(List<QuizQuestion> questions) {
+        if (questions != null && !questions.isEmpty())
+            quizQuestionDao.saveAll(questions);
+    }
+
+    public Optional<QuizQuestion> findById(int id) {
+        return quizQuestionDao.findById(id);
     }
 }
