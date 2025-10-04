@@ -133,7 +133,7 @@ const Subscription = () => {
               </h2>
             </div>
             <p className="text-sm text-gray-600">
-              You can upload <span className="font-semibold text-purple-700">{points}</span> more files with your current points.
+              You can use <span className="font-semibold text-purple-700">{points}</span> more points to create or attend quizzes.
             </p>
             {pointsError && (
               <div className="text-xs text-red-600 mt-1">
