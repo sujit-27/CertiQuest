@@ -31,7 +31,7 @@ const QuizPage = () => {
         if (selectedQuiz) {
           setQuiz(selectedQuiz);
         } else {
-          const response = await fetch(`https://certiquest.onrender.com/api/quizzes/${quizId}`);
+          const response = await fetch(`https://certiquest.up.railway.app/api/quizzes/${quizId}`);
           if (!response.ok) throw new Error("Quiz not found");
           const data = await response.json();
           setQuiz(data);
