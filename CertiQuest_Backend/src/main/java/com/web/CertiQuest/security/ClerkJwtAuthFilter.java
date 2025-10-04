@@ -41,7 +41,8 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
                 uri.startsWith("/api/certificates/download") ||
                 uri.startsWith("/api/certificates/upload") ||
                 uri.startsWith("/api/leaderboard") ||
-                uri.startsWith("/api/fcm")
+                uri.startsWith("/api/fcm") ||
+                uri.startsWith("/api/quiz")
         ) {
             filterChain.doFilter(request, response);
             return;
