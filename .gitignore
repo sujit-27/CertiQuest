@@ -1,0 +1,63 @@
+# =========================
+# Node / Frontend
+# =========================
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+.vscode/
+.idea/
+.DS_Store
+
+# =========================
+# Java / Spring Boot / Backend
+# =========================
+/target/
+*.class
+*.jar
+*.war
+*.ear
+*.iml
+*.log
+hs_err_pid*
+.spring-boot-devtools
+.mvn/
+.settings/
+*.db
+# Spring Boot properties (sensitive info)
+CertiQuest_Backend/CertiQuest/src/main/resources/application.properties
+CertiQuest_Backend/src/main/resources/application.properties
+CertiQuest_Backend/target/classes/application.properties
+
+
+
+# =========================
+# Docker
+# =========================
+*.env.*.local
+docker-compose.override.yml
+*.pid
+*.sock
+
+# =========================
+# Railway / Deployment
+# =========================
+.railway/
+.railwayignore
+*.local
+
+# =========================
+# OS / Misc
+# =========================
+Thumbs.db
+*.swp
+*.swo
+*.bak
