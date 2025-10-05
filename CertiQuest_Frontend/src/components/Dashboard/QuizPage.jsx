@@ -32,7 +32,7 @@ const QuizPage = () => {
           setQuiz(selectedQuiz);
         } else {
           // Fallback: fetch from backend
-          const response = await fetch(`http://certiquest.up.railway.app/api/quizzes/${quizId}`);
+          const response = await fetch(`https://certiquest.up.railway.app/api/quizzes/${quizId}`);
           if (!response.ok) throw new Error("Quiz not found");
           const data = await response.json();
           setQuiz(data);
