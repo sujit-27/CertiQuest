@@ -53,7 +53,7 @@ public class QuizService {
     @Autowired
     private EmailService emailService;
 
-    /**
+        /**
      * Create a new quiz and deduct points
      */
     public Quiz createQuiz(String title, String category, String difficulty, int noOfQuestions, String createdBy) {
@@ -67,8 +67,7 @@ public class QuizService {
         Profile creator = profileService.getCurrentProfile();
         validateAdminPlanForQuizCreation(creator, difficulty, noOfQuestions);
 
-        List<QuizQuestion> questions = quizQuestionService.getOrCreateQuiz(category, difficulty, noOfQuestions);
-
+        // 1️⃣ Create and save Quiz first
         Quiz quiz = new Quiz();
         quiz.setTitle(title);
         quiz.setCategory(category);
@@ -76,12 +75,25 @@ public class QuizService {
         quiz.setNoOfQuestions(noOfQuestions);
         quiz.setCreatedAt(Instant.now());
         quiz.setCreatedBy(createdBy);
-        quiz.setQuestions(questions);
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
-
         Quiz savedQuiz = quizDao.save(quiz);
-        profileService.incrementQuizCreatedCount(creator);
 
+        // 2️⃣ Generate questions
+        List<QuizQuestion> questions = quizQuestionService.getOrCreateQuiz(category, difficulty, noOfQuestions);
+
+        // 3️⃣ Assign saved Quiz to each question
+        for (QuizQuestion q : questions) {
+            q.setQuiz(savedQuiz); // important: set quiz_id
+        }
+
+        // 4️⃣ Save all questions
+        quizQuestionDao.saveAll(questions);
+
+        // 5️⃣ Link questions to Quiz and save again
+        savedQuiz.setQuestions(questions);
+        savedQuiz = quizDao.save(savedQuiz);
+
+        profileService.incrementQuizCreatedCount(creator);
         emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
 
         return savedQuiz;
@@ -148,25 +160,31 @@ public class QuizService {
         Profile creator = profileService.getCurrentProfile();
         validateAdminPlanForQuizCreation(creator, difficulty, questions.size());
 
+        // 1️⃣ Create and save Quiz first
         Quiz quiz = new Quiz();
         quiz.setTitle(title != null && !title.isEmpty() ? title : "User uploaded quiz: " + pdfFile.getOriginalFilename());
         quiz.setCategory(category != null ? category : "General");
         quiz.setDifficulty(difficulty != null ? difficulty : "Medium");
         quiz.setCreatedBy(createdBy);
         quiz.setNoOfQuestions(questions.size());
-        quiz.setQuestions(questions);
         quiz.setCreatedAt(Instant.now());
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
-
         Quiz savedQuiz = quizDao.save(quiz);
-        profileService.incrementQuizCreatedCount(creator);
 
-        // ✅ Send mail to all except creator
+        // 2️⃣ Assign Quiz to each question and save
+        for (QuizQuestion q : questions) {
+            q.setQuiz(savedQuiz); // important: set quiz_id
+        }
+        quizQuestionDao.saveAll(questions);
+
+        savedQuiz.setQuestions(questions);
+        savedQuiz = quizDao.save(savedQuiz);
+
+        profileService.incrementQuizCreatedCount(creator);
         emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
 
         return savedQuiz;
     }
-
     /**
      * Evaluate submission and deduct 1 point for attending quiz
      */
