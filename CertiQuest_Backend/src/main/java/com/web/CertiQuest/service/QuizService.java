@@ -10,19 +10,18 @@ import net.sourceforge.tess4j.ITesseract;
 import net.sourceforge.tess4j.Tesseract;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
-
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.InputStream;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,31 +30,25 @@ public class QuizService {
 
     @Autowired
     private QuizDao quizDao;
-
     @Autowired
     private QuizQuestionDao quizQuestionDao;
-
     @Autowired
     private QuizQuestionService quizQuestionService;
-
     @Autowired
     private QuizResultDao quizResultDao;
-
     @Autowired
     private ProfileService profileService;
-
     @Autowired
     private UserPointsService userPointsService;
-
     @Autowired
     private UserPointsDao userPointsDao;
-
     @Autowired
     private EmailService emailService;
 
     /**
-     * Create a new quiz and deduct points
+     * ✅ Create a new quiz and deduct points safely
      */
+    @Transactional
     public Quiz createQuiz(String title, String category, String difficulty, int noOfQuestions, String createdBy) {
         userPointsService.consumePoints(1)
                 .orElseThrow(() -> new RuntimeException("Insufficient points to create quiz"));
@@ -67,7 +60,7 @@ public class QuizService {
         Profile creator = profileService.getCurrentProfile();
         validateAdminPlanForQuizCreation(creator, difficulty, noOfQuestions);
 
-        // 1️⃣ Save Quiz first
+        // Step 1️⃣ Save quiz first (to ensure ID is generated)
         Quiz quiz = new Quiz();
         quiz.setTitle(title);
         quiz.setCategory(category);
@@ -77,31 +70,33 @@ public class QuizService {
         quiz.setCreatedBy(createdBy);
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
 
-        Quiz savedQuiz = quizDao.save(quiz);
+        Quiz savedQuiz = quizDao.saveAndFlush(quiz);
 
-        // 2️⃣ Generate questions
-        List<QuizQuestion> questions = quizQuestionService.getOrCreateQuiz(category, difficulty, noOfQuestions);
+        // Step 2️⃣ Generate questions (do not save yet)
+        List<QuizQuestion> questions = quizQuestionService.generateQuestions(category, difficulty, noOfQuestions);
 
-        // 3️⃣ Assign quizId to each question
+        // Step 3️⃣ Assign the saved quiz reference
         for (QuizQuestion q : questions) {
-            q.setId(savedQuiz.getId());
+            q.setQuiz(savedQuiz);
         }
 
-        // 4️⃣ Save all questions
+        // Step 4️⃣ Save questions
         quizQuestionDao.saveAll(questions);
 
-        profileService.incrementQuizCreatedCount(creator);
+        // Step 5️⃣ Attach and resave quiz
+        savedQuiz.setQuestions(questions);
+        quizDao.save(savedQuiz);
 
-        // Send mail to all except creator
+        profileService.incrementQuizCreatedCount(creator);
         emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
 
         return savedQuiz;
     }
 
-
     /**
-     * Create a quiz from a PDF and deduct points
+     * ✅ Create quiz from PDF
      */
+    @Transactional
     public Quiz createQuizFromPdf(MultipartFile pdfFile, String title,
                                   String category, String difficulty, String createdBy) {
         userPointsService.consumePoints(1)
@@ -110,7 +105,6 @@ public class QuizService {
         if (pdfFile == null || pdfFile.isEmpty()) {
             throw new IllegalArgumentException("PDF file is required.");
         }
-
         if (!"application/pdf".equalsIgnoreCase(pdfFile.getContentType())) {
             throw new IllegalArgumentException("Only PDF files are supported.");
         }
@@ -122,7 +116,7 @@ public class QuizService {
             PDFTextStripper stripper = new PDFTextStripper();
             pdfText = stripper.getText(document);
 
-            // OCR fallback
+            // OCR fallback if needed
             if (pdfText.trim().isEmpty()) {
                 PDFRenderer pdfRenderer = new PDFRenderer(document);
                 StringBuilder ocrText = new StringBuilder();
@@ -142,11 +136,11 @@ public class QuizService {
                     throw new RuntimeException("Cannot extract questions: PDF contains no text even after OCR.");
                 }
             }
-
         } catch (Exception e) {
             throw new RuntimeException("Failed to read PDF file", e);
         }
 
+        // Step 1️⃣ Extract questions from text
         List<QuizQuestion> questions = quizQuestionService.extractQuestionsFromText(
                 pdfText,
                 category != null ? category : "General",
@@ -160,7 +154,7 @@ public class QuizService {
         Profile creator = profileService.getCurrentProfile();
         validateAdminPlanForQuizCreation(creator, difficulty, questions.size());
 
-        // 1️⃣ Save Quiz first
+        // Step 2️⃣ Save quiz first
         Quiz quiz = new Quiz();
         quiz.setTitle(title != null && !title.isEmpty() ? title : "User uploaded quiz: " + pdfFile.getOriginalFilename());
         quiz.setCategory(category != null ? category : "General");
@@ -170,30 +164,35 @@ public class QuizService {
         quiz.setCreatedAt(Instant.now());
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
 
-        Quiz savedQuiz = quizDao.save(quiz);
+        Quiz savedQuiz = quizDao.saveAndFlush(quiz);
 
-        // 2️⃣ Assign quizId to questions
+        // Step 3️⃣ Assign quiz to each question
         for (QuizQuestion q : questions) {
-            q.setId(savedQuiz.getId());
+            q.setQuiz(savedQuiz);
         }
 
-        // 3️⃣ Save questions
+        // Step 4️⃣ Save all questions
         quizQuestionDao.saveAll(questions);
 
-        profileService.incrementQuizCreatedCount(creator);
+        // Step 5️⃣ Attach questions to quiz
+        savedQuiz.setQuestions(questions);
+        quizDao.save(savedQuiz);
 
-        // Send mail to all except creator
+        profileService.incrementQuizCreatedCount(creator);
         emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
 
         return savedQuiz;
     }
-
     /**
      * Evaluate submission and deduct 1 point for attending quiz
      */
     public QuizResult evaluateAndSaveResult(QuizSubmissionDto submission, String userId) {
         userPointsService.consumePoints(1)
                 .orElseThrow(() -> new RuntimeException("Insufficient points to attend quiz"));
+
+        if (submission.getQuizId() <= 0) {
+            throw new RuntimeException("Invalid quizId: " + submission.getQuizId());
+        }
 
         int score = calculateScore(submission);
         QuizResult result = new QuizResult();
@@ -202,10 +201,6 @@ public class QuizService {
         result.setScore(score);
         result.setTotalQuestions(submission.getAnswers().size());
         quizResultDao.save(result);
-
-        if (submission.getQuizId() <= 0) {
-            throw new RuntimeException("Invalid quizId: " + submission.getQuizId());
-        }
 
         Quiz quiz = quizDao.findById(submission.getQuizId())
                 .orElseThrow(() -> new RuntimeException("Quiz not found with id: " + submission.getQuizId()));
@@ -257,9 +252,7 @@ public class QuizService {
             quizQuestionDao.findById(ans.getQuestionId())
                     .ifPresent(question -> {
                         if (question.getCorrectAnswer().equalsIgnoreCase(ans.getSelectedAnswer())) {
-                            synchronized (this) {
-                                score.getAndIncrement();
-                            }
+                            score.getAndIncrement();
                         }
                     });
         }
@@ -294,9 +287,7 @@ public class QuizService {
     }
 
     public void deleteQuiz(int id) {
-        quizDao.findById(id).ifPresent(quiz -> {
-            quizDao.deleteById(id);
-        });
+        quizDao.findById(id).ifPresent(quiz -> quizDao.deleteById(id));
     }
 
     public Quiz addParticipant(int quizId, String userId) {
@@ -305,7 +296,6 @@ public class QuizService {
             quiz.getParticipants().add(userId);
             Quiz updatedQuiz = quizDao.save(quiz);
 
-            // ✅ Send mail to quiz creator
             Optional<Quiz> createdQuiz = quizDao.findById(quizId);
             String creator = createdQuiz.get().getCreatedBy();
 
