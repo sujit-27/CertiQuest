@@ -9,7 +9,7 @@ export const fetchUserResults = createAsyncThunk(
       if (!isSignedIn) return rejectWithValue("Not signed in");
       const token = await getToken();
 
-      const response = await axios.get(`http://certiquest.up.railway.app/api/results/${userId}`,
+      const response = await axios.get(`https://certiquest.up.railway.app/api/results/${userId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
