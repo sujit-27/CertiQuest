@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -23,9 +25,12 @@ public class QuizQuestion {
     private String category;
 
     @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "question_options", joinColumns = @JoinColumn(name = "question_id"))
+    @CollectionTable(
+            name = "question_options",
+            joinColumns = @JoinColumn(name = "question_id")
+    )
     @Column(name = "option_text")
-    private List<String> options;
+    private List<String> options = new ArrayList<>();
 
     private String correctAnswer;
 
