@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.util.List;
 
 @Entity
@@ -31,6 +30,11 @@ public class QuizQuestion {
     private String correctAnswer;
 
     private String difficultyLevel;
+
+    // 🔹 Link back to Quiz for proper foreign key
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "quiz_id", nullable = false)
+    private Quiz quiz;
 
     public int getId() {
         return id;
@@ -80,15 +84,11 @@ public class QuizQuestion {
         this.difficultyLevel = difficultyLevel;
     }
 
-    @Override
-    public String toString() {
-        return "QuizQuestion{" +
-                "id=" + id +
-                ", question='" + question + '\'' +
-                ", category='" + category + '\'' +
-                ", options=" + options +
-                ", correctAnswer='" + correctAnswer + '\'' +
-                ", difficultyLevel='" + difficultyLevel + '\'' +
-                '}';
+    public Quiz getQuiz() {
+        return quiz;
+    }
+
+    public void setQuiz(Quiz quiz) {
+        this.quiz = quiz;
     }
 }
