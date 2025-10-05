@@ -10,7 +10,7 @@ export const fetchGlobalLeaderboard = createAsyncThunk(
       if (!isSignedIn) return rejectWithValue("User not signed in");
       const token = await getToken();
       const response = await axios.get(
-        "http://certiquest.up.railway.app/api/leaderboard/global",
+        "https://certiquest.up.railway.app/api/leaderboard/global",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -30,7 +30,7 @@ export const fetchQuizLeaderboard = createAsyncThunk(
       if (!isSignedIn) return rejectWithValue("User not signed in");
       const token = await getToken();
       const response = await axios.get(
-        `http://certiquest.up.railway.app/api/leaderboard/quiz/${quizId}`,
+        `https://certiquest.up.railway.app/api/leaderboard/quiz/${quizId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
