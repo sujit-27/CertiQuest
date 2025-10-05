@@ -14,7 +14,7 @@ export const generateCertificate = createAsyncThunk(
 
       console.log(userId, userName, quizTitle, score, totalQuestions, difficulty)
       const response = await axios.post(
-        "http://certiquest.up.railway.app/api/certificates/generate",
+        "https://certiquest.up.railway.app/api/certificates/generate",
         null,
         {
           params: { userId, userName, quizTitle, score, totalQuestions, difficulty, quizId },
@@ -36,7 +36,7 @@ export const fetchCertificates = createAsyncThunk(
       if (!isSignedIn) return rejectWithValue("Not signed in");
       const token = await getToken();
 
-      const response = await axios.get("http://certiquest.up.railway.app/api/certificates", {
+      const response = await axios.get("https://certiquest.up.railway.app/api/certificates", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
