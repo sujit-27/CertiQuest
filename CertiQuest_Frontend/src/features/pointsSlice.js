@@ -8,7 +8,7 @@ export const fetchUserPoints = createAsyncThunk(
     if (!isSignedIn) return rejectWithValue('Not signed in');
     try {
       const token = await getToken();
-      const response = await axios.get('http://certiquest.up.railway.app/users/points', {
+      const response = await axios.get('https://certiquest.up.railway.app/users/points', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
