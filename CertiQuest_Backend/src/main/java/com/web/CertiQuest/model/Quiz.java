@@ -31,7 +31,7 @@ public class Quiz {
     private String difficulty;
 
     @Column(nullable = false)
-    private String createdBy; // can store Clerk userId or email
+    private String createdBy;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -41,8 +41,8 @@ public class Quiz {
     @Column(nullable = false)
     private Integer noOfQuestions = 0;
 
-    // 🔹 Proper bidirectional mapping
-    @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    // ✅ OneToMany without duplicate join column
+    @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<QuizQuestion> questions = new ArrayList<>();
 
     @ElementCollection(fetch = FetchType.LAZY)
@@ -55,12 +55,8 @@ public class Quiz {
 
     @PrePersist
     protected void onCreate() {
-        if (createdAt == null) {
-            createdAt = Instant.now();
-        }
-        if (expiryDate == null) {
-            expiryDate = LocalDate.now().plusDays(7);
-        }
+        if (createdAt == null) createdAt = Instant.now();
+        if (expiryDate == null) expiryDate = LocalDate.now().plusDays(7);
     }
 
     public boolean isExpired() {
