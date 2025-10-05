@@ -62,6 +62,8 @@ export const submitQuiz = createAsyncThunk(
   'quizzes/submit',
   async ({ quizId, answers,isSignedIn, token, userId }, { rejectWithValue }) => {
     try {
+      console.log(token);
+      
       if (!isSignedIn) return rejectWithValue('Not signed in');
       const response = await axios.post(
         `http://localhost:8080/api/quiz/${quizId}/submit?userId=${encodeURIComponent(userId)}`,

@@ -1,5 +1,4 @@
 C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\CertiQuestApplication.java
-C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\config\KafkaConfig.java
 C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\config\SecurityConfig.java
 C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\config\StaticResourceConfig.java
 C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\controller\CertificateController.java
@@ -39,9 +38,8 @@ C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\
 C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\model\UserToken.java
 C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\security\ClerkJwksProvider.java
 C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\security\ClerkJwtAuthFilter.java
-C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\service\AdminQuizEventConsumer.java
-C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\service\AdminQuizEventProducer.java
 C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\service\CertificateService.java
+C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\service\EmailService.java
 C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\service\LeaderboardService.java
 C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\service\PaymentService.java
 C:\Users\sujit\OneDrive\Desktop\CertiQuest\CertiQuest_Backend\src\main\java\com\web\CertiQuest\service\ProfileService.java

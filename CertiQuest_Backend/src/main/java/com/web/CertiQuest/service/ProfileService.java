@@ -86,28 +86,37 @@ public class ProfileService {
     }
 
     public Profile getCurrentProfile() {
-        if (SecurityContextHolder.getContext().getAuthentication() == null) {
-            throw new UsernameNotFoundException("User not Authenticated");
+
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+
+        // Check if auth context exists and is authenticated properly
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new UsernameNotFoundException("User not authenticated");
         }
 
-        String clerkId = SecurityContextHolder.getContext().getAuthentication().getName();
+        String clerkId = auth.getName();
+        System.out.println(clerkId);
+        if (clerkId == null || clerkId.isEmpty()) {
+            throw new UsernameNotFoundException("User identifier (clerkId) is missing");
+        }
+
         Profile profile = repo.findByClerkId(clerkId);
 
+        // If profile does not exist, create a default one (optional behavior)
         if (profile == null) {
-            try {
-                Profile newProfile = new Profile();
-                newProfile.setClerkId(clerkId);
-                newProfile.setPoints(10);
-                newProfile.setCreatedAt(Instant.now());
-                profile = repo.save(newProfile);
-            } catch (Exception e) {
-                // If another request created it at the same time
-                profile = repo.findByClerkId(clerkId);
-            }
+            Profile newProfile = new Profile();
+            newProfile.setClerkId(clerkId);
+            newProfile.setPoints(DEFAULT_USER_POINTS);
+            newProfile.setPlan(DEFAULT_USER_PLAN);
+            newProfile.setCreatedAt(Instant.now());
+
+            // Optionally set other default profile properties here if desired
+            profile = repo.save(newProfile);
         }
 
         return profile;
     }
+
 
     public int getQuizzesCreatedThisMonth(int profileId) {
         Profile profile = repo.findByClerkId(getCurrentProfile().getClerkId());

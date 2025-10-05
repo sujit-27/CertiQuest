@@ -35,14 +35,13 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
-        // Skip non-secured endpoints
         String uri = request.getRequestURI();
-        if (uri.startsWith("/api/v1.0/webhooks") ||
-                uri.startsWith("/api/certificates/download") ||
-                uri.startsWith("/api/certificates/upload") ||
+
+        // ===== Public endpoints that don't need authentication =====
+        if (uri.startsWith("/api/v1.0/webhooks") ||   // Clerk webhooks
+                uri.startsWith("/api/certificates/download") || // Certificate downloads
                 uri.startsWith("/api/leaderboard") ||
-                uri.startsWith("/api/fcm")
-        ) {
+                request.getMethod().equalsIgnoreCase("OPTIONS")) { // Preflight
             filterChain.doFilter(request, response);
             return;
         }
@@ -61,11 +60,10 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // Decode header to get "kid"
+            // Decode JWT header to get "kid"
             String headerJson = new String(Base64.getUrlDecoder().decode(tokenParts[0]));
             ObjectMapper mapper = new ObjectMapper();
             JsonNode headerNode = mapper.readTree(headerJson);
-
             if (!headerNode.has("kid")) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Token header missing 'kid'");
                 return;
@@ -74,26 +72,30 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
             String kid = headerNode.get("kid").asText();
             PublicKey publicKey = jwksProvider.getPublicKey(kid);
 
-            // Validate JWT
-            Claims claims = Jwts.parser()
-                    .verifyWith(publicKey)
-                    .clockSkewSeconds(60)
+            // Parse JWT claims: LEGACY JJWT SYNTAX
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(publicKey)
+                    .setAllowedClockSkewSeconds(60)
                     .requireIssuer(clerkIssuer)
-                    .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
+                    .build() // returns JwtParser
+                    .parseClaimsJws(token) // parse here
+                    .getBody();
+
 
             String clerkId = claims.getSubject();
+            String role = claims.get("role", String.class);
 
-            // Set authentication
             UsernamePasswordAuthenticationToken authenticationToken =
                     new UsernamePasswordAuthenticationToken(
                             clerkId,
                             null,
-                            Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")) // Adjust roles here
+                            Collections.singletonList(
+                                    new SimpleGrantedAuthority(
+                                            role != null ? "ROLE_" + role.toUpperCase() : "ROLE_USER"
+                                    )
+                            )
                     );
-
-            SecurityContextHolder.getContext().setAuthentication((authenticationToken));
+            SecurityContextHolder.getContext().setAuthentication(authenticationToken);
 
             filterChain.doFilter(request, response);
 

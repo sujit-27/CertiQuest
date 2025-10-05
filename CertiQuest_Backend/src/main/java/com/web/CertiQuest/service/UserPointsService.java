@@ -1,6 +1,7 @@
 package com.web.CertiQuest.service;
 
 import com.web.CertiQuest.dao.UserPointsDao;
+import com.web.CertiQuest.model.Profile;
 import com.web.CertiQuest.model.UserPoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +55,7 @@ public class UserPointsService {
     }
 
     public Optional<UserPoints> consumePoints(int requiredPoints) {
-        var profile = profileService.getCurrentProfile();
+        Profile profile = profileService.getCurrentProfile();
         if (profile == null) {
             logger.warn("Cannot consume points for unauthenticated user");
             return Optional.empty();

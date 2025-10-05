@@ -11,7 +11,6 @@ import net.sourceforge.tess4j.Tesseract;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -32,28 +31,32 @@ public class QuizService {
 
     @Autowired
     private QuizDao quizDao;
+
     @Autowired
     private QuizQuestionDao quizQuestionDao;
+
     @Autowired
     private QuizQuestionService quizQuestionService;
+
     @Autowired
     private QuizResultDao quizResultDao;
+
     @Autowired
     private ProfileService profileService;
+
     @Autowired
     private UserPointsService userPointsService;
-    @Autowired
-    KafkaTemplate<String, QuizEvent> kafkaTemplate;
+
     @Autowired
     private UserPointsDao userPointsDao;
 
-    private static final String TOPIC = "quiz-admin";
+    @Autowired
+    private EmailService emailService;
 
     /**
      * Create a new quiz and deduct points
      */
     public Quiz createQuiz(String title, String category, String difficulty, int noOfQuestions, String createdBy) {
-        // Deduct 1 point atomically
         userPointsService.consumePoints(1)
                 .orElseThrow(() -> new RuntimeException("Insufficient points to create quiz"));
 
@@ -77,16 +80,9 @@ public class QuizService {
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
 
         Quiz savedQuiz = quizDao.save(quiz);
-
         profileService.incrementQuizCreatedCount(creator);
 
-        kafkaTemplate.send(TOPIC, new QuizEvent(
-                "CREATED",
-                savedQuiz.getId(),
-                savedQuiz.getTitle(),
-                savedQuiz.getDifficulty(),
-                savedQuiz.getQuestions().size()
-        ));
+        emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
 
         return savedQuiz;
     }
@@ -96,15 +92,13 @@ public class QuizService {
      */
     public Quiz createQuizFromPdf(MultipartFile pdfFile, String title,
                                   String category, String difficulty, String createdBy) {
-
-        // Deduct 1 point atomically
         userPointsService.consumePoints(1)
                 .orElseThrow(() -> new RuntimeException("Insufficient points to create quiz"));
 
-        // ===== Validate file =====
         if (pdfFile == null || pdfFile.isEmpty()) {
             throw new IllegalArgumentException("PDF file is required.");
         }
+
         if (!"application/pdf".equalsIgnoreCase(pdfFile.getContentType())) {
             throw new IllegalArgumentException("Only PDF files are supported.");
         }
@@ -116,7 +110,7 @@ public class QuizService {
             PDFTextStripper stripper = new PDFTextStripper();
             pdfText = stripper.getText(document);
 
-            // Fallback to OCR if no text
+            // OCR fallback
             if (pdfText.trim().isEmpty()) {
                 PDFRenderer pdfRenderer = new PDFRenderer(document);
                 StringBuilder ocrText = new StringBuilder();
@@ -130,17 +124,17 @@ public class QuizService {
                     String result = tesseract.doOCR(image);
                     ocrText.append(result).append("\n");
                 }
-                pdfText = ocrText.toString();
 
+                pdfText = ocrText.toString();
                 if (pdfText.trim().isEmpty()) {
                     throw new RuntimeException("Cannot extract questions: PDF contains no text even after OCR.");
                 }
             }
+
         } catch (Exception e) {
             throw new RuntimeException("Failed to read PDF file", e);
         }
 
-        // ===== Extract quiz questions from PDF text =====
         List<QuizQuestion> questions = quizQuestionService.extractQuestionsFromText(
                 pdfText,
                 category != null ? category : "General",
@@ -165,16 +159,10 @@ public class QuizService {
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
 
         Quiz savedQuiz = quizDao.save(quiz);
-
         profileService.incrementQuizCreatedCount(creator);
 
-        kafkaTemplate.send(TOPIC, new QuizEvent(
-                "CREATED",
-                savedQuiz.getId(),
-                savedQuiz.getTitle(),
-                savedQuiz.getDifficulty(),
-                savedQuiz.getQuestions().size()
-        ));
+        // ✅ Send mail to all except creator
+        emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
 
         return savedQuiz;
     }
@@ -187,7 +175,6 @@ public class QuizService {
                 .orElseThrow(() -> new RuntimeException("Insufficient points to attend quiz"));
 
         int score = calculateScore(submission);
-
         QuizResult result = new QuizResult();
         result.setQuizId(submission.getQuizId());
         result.setUserId(userId);
@@ -210,7 +197,6 @@ public class QuizService {
         return result;
     }
 
-    // ====================== Other Methods Stay Same ======================
     private void validateAdminPlanForQuizCreation(Profile user, String difficulty, int noOfQuestions) {
         String userId = user.getClerkId();
         Optional<UserPoints> userPoints = userPointsDao.findByClerkId(userId);
@@ -264,7 +250,6 @@ public class QuizService {
                 .orElseThrow(() -> new RuntimeException("Quiz with id " + id + " not found"));
 
         quiz.setTitle(title);
-
         boolean difficultyChanged = !quiz.getDifficulty().equals(difficulty);
         boolean questionCountChanged = quiz.getNoOfQuestions() != noOfQuestions;
 
@@ -280,27 +265,15 @@ public class QuizService {
 
         Quiz updatedQuiz = quizDao.save(quiz);
 
-        kafkaTemplate.send(TOPIC, new QuizEvent(
-                "UPDATED",
-                updatedQuiz.getId(),
-                updatedQuiz.getTitle(),
-                updatedQuiz.getDifficulty(),
-                updatedQuiz.getQuestions().size()
-        ));
+        Optional<Quiz> createdQuiz = quizDao.findById(id);
+        String creator = createdQuiz.get().getCreatedBy();
+        emailService.sendQuizUpdatedMailToAllExceptCreator(updatedQuiz, creator);
 
         return updatedQuiz;
     }
 
     public void deleteQuiz(int id) {
         quizDao.findById(id).ifPresent(quiz -> {
-            QuizEvent event = new QuizEvent(
-                    "DELETED",
-                    quiz.getId(),
-                    quiz.getTitle(),
-                    quiz.getDifficulty(),
-                    quiz.getNoOfQuestions()
-            );
-            kafkaTemplate.send(TOPIC, event);
             quizDao.deleteById(id);
         });
     }
@@ -309,7 +282,15 @@ public class QuizService {
         Quiz quiz = getQuizById(quizId);
         if (!quiz.getParticipants().contains(userId)) {
             quiz.getParticipants().add(userId);
-            return quizDao.save(quiz);
+            Quiz updatedQuiz = quizDao.save(quiz);
+
+            // ✅ Send mail to quiz creator
+            Optional<Quiz> createdQuiz = quizDao.findById(quizId);
+            String creator = createdQuiz.get().getCreatedBy();
+
+            emailService.sendParticipantJoinedMailToCreator(updatedQuiz, userId, creator);
+
+            return updatedQuiz;
         }
         return quiz;
     }

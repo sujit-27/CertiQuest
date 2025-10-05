@@ -17,6 +17,6 @@ public interface CertificateDao extends JpaRepository<Certificate, Long> {
 
     List<Certificate> findAllByUserId(String userId);
 
-    List<Certificate> findALlByUserId(String userId);
+    List<Certificate> findALlByUserId(java.lang.String userId);
 }
 

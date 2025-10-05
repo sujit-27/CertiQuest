@@ -33,7 +33,7 @@ public class CertificateService {
         String safeUserName = userName.replaceAll("\\s+", "_"); // sanitize username for filename
         String fileName = "Certificate_" + safeUserName + "_" + LocalDate.now() + System.currentTimeMillis() + ".pdf";  // no spaces in filename
         String filePath = folder + "/" + fileName;
-        String fileUrl = "http://localhost:8080/api/certificates/download/" + fileName;
+        String fileUrl = "/api/certificates/download/" + fileName;
 
         try {
             generateCertificatePdf(userName, quizTitle, score, totalQuestions, difficulty, filePath);

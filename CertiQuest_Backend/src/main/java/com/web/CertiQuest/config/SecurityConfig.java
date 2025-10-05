@@ -32,8 +32,17 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        // ===== Allow OPTIONS for preflight requests =====
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/v1.0/webhooks/**","/api/quiz/**","/api/quiz","/api/certificates/**","/api/certificates/download/**","/api/leaderboard/**","/api/fcm/**").permitAll()
+
+                        // ===== Public endpoints =====
+                        .requestMatchers(
+                                "/api/v1.0/webhooks/**",
+                                "/api/certificates/download/**",
+                                "/api/leaderboard/**"
+                        ).permitAll()
+
+                        // ===== Everything else requires authentication =====
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -47,7 +56,9 @@ public class SecurityConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
-                "certi-quest-ten.vercel.app",
+                "http://localhost:5173",
+                "http://localhost:8080",
+                "https://certi-quest-ten.vercel.app",
                 "https://certiquest.onrender.com"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
@@ -56,7 +67,6 @@ public class SecurityConfig {
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-
         return new CorsFilter(source);
     }
 }
