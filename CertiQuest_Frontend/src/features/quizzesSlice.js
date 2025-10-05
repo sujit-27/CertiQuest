@@ -7,7 +7,7 @@ export const fetchAllQuizzes = createAsyncThunk(
     try {
       if (!isSignedIn) return rejectWithValue('Not signed in');
       const token = await getToken();
-      const response = await axios.get('http://localhost:8080/api/quiz', {
+      const response = await axios.get('http://certiquest.up.railway.app/api/quiz', {
         headers: { Authorization: `Bearer ${token}` },
       });
       return response.data || [];
@@ -22,7 +22,7 @@ export const createQuiz = createAsyncThunk(
   async ({ title, category, difficulty, noOfQuestions, token, createdBy }, { rejectWithValue }) => {
     try {
       const body = { title, category, difficulty, noOfQuestions, createdBy };
-      const response = await axios.post('http://localhost:8080/api/quiz/create', body, {
+      const response = await axios.post('http://certiquest.up.railway.app/api/quiz/create', body, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       return response.data;
@@ -38,7 +38,7 @@ export const createQuizFromPdf = createAsyncThunk(
     try {
       const token = await getToken();
       const response = await axios.post(
-        "http://localhost:8080/api/quiz/create-quiz-pdf",
+        "http://certiquest.up.railway.app/api/quiz/create-quiz-pdf",
         formData,
         {
           headers: {
@@ -66,7 +66,7 @@ export const submitQuiz = createAsyncThunk(
       
       if (!isSignedIn) return rejectWithValue('Not signed in');
       const response = await axios.post(
-        `http://localhost:8080/api/quiz/${quizId}/submit?userId=${encodeURIComponent(userId)}`,
+        `http://certiquest.up.railway.app/api/quiz/${quizId}/submit?userId=${encodeURIComponent(userId)}`,
         { quizId,answers },
         { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
       );
@@ -86,7 +86,7 @@ export const joinQuiz = createAsyncThunk(
       const token = await getToken();
 
       const response = await axios.post(
-        `http://localhost:8080/api/quiz/${quizId}/join`,
+        `http://certiquest.up.railway.app/api/quiz/${quizId}/join`,
         { userId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -106,7 +106,7 @@ export const updateQuiz = createAsyncThunk(
       const token = await getToken();
 
       const response = await axios.put(
-        `http://localhost:8080/api/quiz/update`,
+        `http://certiquest.up.railway.app/api/quiz/update`,
         null,
         {
           params: { id, title, difficulty, noOfQuestions },
@@ -131,7 +131,7 @@ export const deleteQuiz = createAsyncThunk(
       if (!isSignedIn) return rejectWithValue("Not signed in");
       const token = await getToken();
       const response = await axios.delete(
-        `http://localhost:8080/api/quiz/delete?id=${id}`,
+        `http://certiquest.up.railway.app/api/quiz/delete?id=${id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
