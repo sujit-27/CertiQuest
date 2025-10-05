@@ -58,8 +58,8 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
                 "http://localhost:8080",
-                "https://certi-quest-ten.vercel.app",
-                "https://certiquest.onrender.com"
+                "https://certi-quest-gamma.vercel.app",
+                "https://certiquest.up.railway.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
