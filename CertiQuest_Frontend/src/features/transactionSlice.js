@@ -8,7 +8,7 @@ export const fetchUserTransactions = createAsyncThunk(
     if (!isSignedIn) return rejectWithValue('Not signed in');
     try {
       const token = await getToken();
-      const response = await axios.get('http://certiquest.up.railway.app/api/transactions', {
+      const response = await axios.get('https://certiquest.up.railway.app/api/transactions', {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true,
       });
