@@ -39,11 +39,11 @@ public class Quiz {
     private LocalDate expiryDate;
 
     @Column(nullable = false)
-    private Integer noOfQuestions=0;
+    private Integer noOfQuestions = 0;
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
-    @JoinColumn(name = "quiz_id", nullable = false)
-    private List<QuizQuestion> questions;
+    // 🔹 Proper bidirectional mapping
+    @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<QuizQuestion> questions = new ArrayList<>();
 
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(
