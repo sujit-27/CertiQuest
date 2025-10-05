@@ -79,7 +79,7 @@ const Certificates = () => {
 
                   {cert.certificateUrl && (
                     <a
-                      href={`${"https://certiquest.up.railway.app/"}${cert.certificateUrl}`}
+                      href={`${"https://certiquest.up.railway.app"}${cert.certificateUrl}`}
                       download
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
