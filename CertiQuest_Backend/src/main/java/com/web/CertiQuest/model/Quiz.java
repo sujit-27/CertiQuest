@@ -1,5 +1,6 @@
 package com.web.CertiQuest.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -41,8 +42,8 @@ public class Quiz {
     @Column(nullable = false)
     private Integer noOfQuestions = 0;
 
-    // ✅ OneToMany without duplicate join column
-    @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference
     private List<QuizQuestion> questions = new ArrayList<>();
 
     @ElementCollection(fetch = FetchType.LAZY)
@@ -65,6 +66,21 @@ public class Quiz {
 
     public int getQuestionCount() {
         return questions != null ? questions.size() : 0;
+    }
+
+    // 🔹 Helper method to add a question
+    public void addQuestion(QuizQuestion question) {
+        if (questions == null) questions = new ArrayList<>();
+        questions.add(question);
+        question.setQuiz(this); // Important!
+    }
+
+    // 🔹 Helper method to remove a question
+    public void removeQuestion(QuizQuestion question) {
+        if (questions != null) {
+            questions.remove(question);
+            question.setQuiz(null);
+        }
     }
 
     public Integer getId() {
