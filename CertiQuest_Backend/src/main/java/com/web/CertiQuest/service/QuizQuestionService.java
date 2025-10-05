@@ -62,7 +62,7 @@ public class QuizQuestionService {
             Map<String, Object> requestBody = Map.of(
                     "model", "command-nightly",
                     "message", prompt,
-                    "max_tokens", 3000,  // increased to prevent truncation
+                    "max_tokens", 3000, 
                     "temperature", 0.7
             );
 
@@ -103,9 +103,9 @@ public class QuizQuestionService {
         // Remove quotes and escape characters if response is returned as string
         if (text.startsWith("\"") && text.endsWith("\"")) {
             text = text.substring(1, text.length() - 1)
-                       .replace("\\\"", "\"")
-                       .replace("\\n", "")
-                       .replace("\\r", "");
+                     .replace("\\\"", "\"")
+                     .replace("\\n", "")
+                     .replace("\\r", "");
         }
 
         return text;
@@ -130,9 +130,7 @@ public class QuizQuestionService {
     public List<QuizQuestion> generateQuestions(String category, String difficulty, int noOfQuestions) {
         String prompt = buildPrompt(category, difficulty, noOfQuestions);
         String response = callCohereAPI(prompt);
-        List<QuizQuestion> questions = parseQuestions(response, category, difficulty);
-        quizQuestionDao.saveAll(questions);
-        return questions;
+        return parseQuestions(response, category, difficulty);  
     }
 
     // ---------------- Get or create quiz ----------------
@@ -169,7 +167,6 @@ public class QuizQuestionService {
             throw new RuntimeException("Cohere returned no questions from the text.");
         }
 
-        quizQuestionDao.saveAll(questions);
-        return questions;
+        return questions; 
     }
 }
