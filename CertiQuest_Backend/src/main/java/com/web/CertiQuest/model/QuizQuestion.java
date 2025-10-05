@@ -1,6 +1,6 @@
 package com.web.CertiQuest.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -33,11 +33,19 @@ public class QuizQuestion {
 
     private String difficultyLevel;
 
-    // ✅ Avoid infinite recursion
+    // 🔹 Link back to Quiz
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "quiz_id", nullable = false)
-    @JsonIgnore
+    @JsonBackReference
     private Quiz quiz;
+
+    // Optional: convenience constructor for quick creation
+    public QuizQuestion(String question, List<String> options, String correctAnswer, String difficultyLevel) {
+        this.question = question;
+        this.options = options;
+        this.correctAnswer = correctAnswer;
+        this.difficultyLevel = difficultyLevel;
+    }
 
     public int getId() {
         return id;
