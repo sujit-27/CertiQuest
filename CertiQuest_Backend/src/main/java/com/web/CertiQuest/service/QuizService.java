@@ -85,7 +85,9 @@ public class QuizService {
         }
 
         // Save quiz (CascadeType.ALL on questions will persist new questions and update managed ones)
+
         Quiz savedQuiz = quizDao.save(quiz);
+        System.out.println(savedQuiz);
 
         profileService.incrementQuizCreatedCount(creator);
         emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
@@ -98,11 +100,9 @@ public class QuizService {
     @Transactional
     public Quiz createQuizFromPdf(MultipartFile pdfFile, String title,
                                   String category, String difficulty, String createdBy) {
-        // Deduct 1 point atomically
         userPointsService.consumePoints(1)
                 .orElseThrow(() -> new RuntimeException("Insufficient points to create quiz"));
 
-        // ===== Validate file =====
         if (pdfFile == null || pdfFile.isEmpty()) {
             throw new IllegalArgumentException("PDF file is required.");
         }
@@ -117,7 +117,6 @@ public class QuizService {
             PDFTextStripper stripper = new PDFTextStripper();
             pdfText = stripper.getText(document);
 
-            // Fallback to OCR if no text
             if (pdfText.trim().isEmpty()) {
                 PDFRenderer pdfRenderer = new PDFRenderer(document);
                 StringBuilder ocrText = new StringBuilder();
@@ -140,7 +139,7 @@ public class QuizService {
             throw new RuntimeException("Failed to read PDF file", e);
         }
 
-        // ===== Extract quiz questions from PDF text =====
+        // Use improved extraction
         List<QuizQuestion> questions = quizQuestionService.extractQuestionsFromText(
                 pdfText,
                 category != null ? category : "General",
@@ -163,16 +162,19 @@ public class QuizService {
         quiz.setCreatedAt(Instant.now());
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
 
-        // Attach extracted questions using addQuestion (do NOT setQuestions directly)
+        // Use addQuestion to set both sides and persist via cascade
         for (QuizQuestion q : questions) {
-            quiz.addQuestion(q); // these are new entities, cascade will persist them
+            quiz.addQuestion(q);
         }
 
         Quiz savedQuiz = quizDao.save(quiz);
 
         profileService.incrementQuizCreatedCount(creator);
+        emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
+
         return savedQuiz;
     }
+
 
     /**
      * Evaluate submission and deduct 1 point for attending quiz
