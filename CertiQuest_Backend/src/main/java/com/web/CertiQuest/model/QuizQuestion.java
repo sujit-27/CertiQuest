@@ -1,6 +1,6 @@
 package com.web.CertiQuest.model;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,24 +19,21 @@ public class QuizQuestion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    @Column(nullable = false, length = 1000)
+    @Column(length = 1000)
     private String question;
-
     private String category;
+    private String correctAnswer;
+    private String difficultyLevel;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "question_options", joinColumns = @JoinColumn(name = "question_id"))
     @Column(name = "option_text")
     private List<String> options;
 
-    private String correctAnswer;
-
-    private String difficultyLevel;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "quiz_id")
-    @JsonBackReference
-    private Quiz quiz;  // <-- Added this to link to Quiz entity properly
+    @JsonIgnore
+    private Quiz quiz;
 
     public int getId() {
         return id;
@@ -62,14 +59,6 @@ public class QuizQuestion {
         this.category = category;
     }
 
-    public List<String> getOptions() {
-        return options;
-    }
-
-    public void setOptions(List<String> options) {
-        this.options = options;
-    }
-
     public String getCorrectAnswer() {
         return correctAnswer;
     }
@@ -84,6 +73,14 @@ public class QuizQuestion {
 
     public void setDifficultyLevel(String difficultyLevel) {
         this.difficultyLevel = difficultyLevel;
+    }
+
+    public List<String> getOptions() {
+        return options;
+    }
+
+    public void setOptions(List<String> options) {
+        this.options = options;
     }
 
     public Quiz getQuiz() {
