@@ -46,10 +46,10 @@ public class QuizService {
     private EmailService emailService;
 
     /**
-     * ✅ Create a new quiz and deduct points safely
+     * Create a new quiz and deduct points
      */
-    @Transactional
     public Quiz createQuiz(String title, String category, String difficulty, int noOfQuestions, String createdBy) {
+        // Deduct 1 point atomically
         userPointsService.consumePoints(1)
                 .orElseThrow(() -> new RuntimeException("Insufficient points to create quiz"));
 
@@ -60,7 +60,8 @@ public class QuizService {
         Profile creator = profileService.getCurrentProfile();
         validateAdminPlanForQuizCreation(creator, difficulty, noOfQuestions);
 
-        // Step 1️⃣ Save quiz first (to ensure ID is generated)
+        List<QuizQuestion> questions = quizQuestionService.getOrCreateQuiz(category, difficulty, noOfQuestions);
+
         Quiz quiz = new Quiz();
         quiz.setTitle(title);
         quiz.setCategory(category);
@@ -68,40 +69,29 @@ public class QuizService {
         quiz.setNoOfQuestions(noOfQuestions);
         quiz.setCreatedAt(Instant.now());
         quiz.setCreatedBy(createdBy);
+        quiz.setQuestions(questions);
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
 
-        Quiz savedQuiz = quizDao.saveAndFlush(quiz);
-
-        // Step 2️⃣ Generate questions (do not save yet)
-        List<QuizQuestion> questions = quizQuestionService.generateQuestions(category, difficulty, noOfQuestions);
-
-        // Step 3️⃣ Assign the saved quiz reference
-        for (QuizQuestion q : questions) {
-            q.setQuiz(savedQuiz);
-        }
-
-        // Step 4️⃣ Save questions
-        quizQuestionDao.saveAll(questions);
-
-        // Step 5️⃣ Attach and resave quiz
-        savedQuiz.setQuestions(questions);
-        quizDao.save(savedQuiz);
+        Quiz savedQuiz = quizDao.save(quiz);
 
         profileService.incrementQuizCreatedCount(creator);
+
         emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
 
         return savedQuiz;
     }
 
     /**
-     * ✅ Create quiz from PDF
+     * Create a quiz from a PDF and deduct points
      */
-    @Transactional
     public Quiz createQuizFromPdf(MultipartFile pdfFile, String title,
                                   String category, String difficulty, String createdBy) {
+
+        // Deduct 1 point atomically
         userPointsService.consumePoints(1)
                 .orElseThrow(() -> new RuntimeException("Insufficient points to create quiz"));
 
+        // ===== Validate file =====
         if (pdfFile == null || pdfFile.isEmpty()) {
             throw new IllegalArgumentException("PDF file is required.");
         }
@@ -116,7 +106,7 @@ public class QuizService {
             PDFTextStripper stripper = new PDFTextStripper();
             pdfText = stripper.getText(document);
 
-            // OCR fallback if needed
+            // Fallback to OCR if no text
             if (pdfText.trim().isEmpty()) {
                 PDFRenderer pdfRenderer = new PDFRenderer(document);
                 StringBuilder ocrText = new StringBuilder();
@@ -130,8 +120,8 @@ public class QuizService {
                     String result = tesseract.doOCR(image);
                     ocrText.append(result).append("\n");
                 }
-
                 pdfText = ocrText.toString();
+
                 if (pdfText.trim().isEmpty()) {
                     throw new RuntimeException("Cannot extract questions: PDF contains no text even after OCR.");
                 }
@@ -140,7 +130,7 @@ public class QuizService {
             throw new RuntimeException("Failed to read PDF file", e);
         }
 
-        // Step 1️⃣ Extract questions from text
+        // ===== Extract quiz questions from PDF text =====
         List<QuizQuestion> questions = quizQuestionService.extractQuestionsFromText(
                 pdfText,
                 category != null ? category : "General",
@@ -154,31 +144,20 @@ public class QuizService {
         Profile creator = profileService.getCurrentProfile();
         validateAdminPlanForQuizCreation(creator, difficulty, questions.size());
 
-        // Step 2️⃣ Save quiz first
         Quiz quiz = new Quiz();
         quiz.setTitle(title != null && !title.isEmpty() ? title : "User uploaded quiz: " + pdfFile.getOriginalFilename());
         quiz.setCategory(category != null ? category : "General");
         quiz.setDifficulty(difficulty != null ? difficulty : "Medium");
         quiz.setCreatedBy(createdBy);
         quiz.setNoOfQuestions(questions.size());
+        quiz.setQuestions(questions);
         quiz.setCreatedAt(Instant.now());
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
 
-        Quiz savedQuiz = quizDao.saveAndFlush(quiz);
-
-        // Step 3️⃣ Assign quiz to each question
-        for (QuizQuestion q : questions) {
-            q.setQuiz(savedQuiz);
-        }
-
-        // Step 4️⃣ Save all questions
-        quizQuestionDao.saveAll(questions);
-
-        // Step 5️⃣ Attach questions to quiz
-        savedQuiz.setQuestions(questions);
-        quizDao.save(savedQuiz);
+        Quiz savedQuiz = quizDao.save(quiz);
 
         profileService.incrementQuizCreatedCount(creator);
+
         emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
 
         return savedQuiz;
