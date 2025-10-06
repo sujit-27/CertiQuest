@@ -249,6 +249,7 @@ public class QuizService {
         return score.get();
     }
 
+    @Transactional
     public Quiz updateQuiz(int id, String title, String difficulty, int noOfQuestions) {
         Quiz quiz = quizDao.findById(id)
                 .orElseThrow(() -> new RuntimeException("Quiz with id " + id + " not found"));
@@ -265,13 +266,19 @@ public class QuizService {
                     quiz.getCategory(), difficulty, noOfQuestions
             );
 
-            // Remove questions not in newQuestions list
-            quiz.getQuestions().removeIf(oldQ -> !newQuestions.contains(oldQ));
+            // Remove orphaned questions (those not in newQuestions)
+            List<QuizQuestion> toRemove = quiz.getQuestions().stream()
+                    .filter(q -> !newQuestions.contains(q))
+                    .toList();
 
-            // Add all new questions not already in the collection
-            for (QuizQuestion newQ : newQuestions) {
-                if (!quiz.getQuestions().contains(newQ)) {
-                    quiz.addQuestion(newQ);
+            for (QuizQuestion q : toRemove) {
+                quiz.removeQuestion(q);
+            }
+
+            // Add new questions not already assigned
+            for (QuizQuestion q : newQuestions) {
+                if (!quiz.getQuestions().contains(q)) {
+                    quiz.addQuestion(q);
                 }
             }
         }
