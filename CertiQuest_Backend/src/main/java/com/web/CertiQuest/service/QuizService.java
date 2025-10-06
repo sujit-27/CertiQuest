@@ -16,14 +16,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.InputStream;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @Service
 public class QuizService {
@@ -48,6 +49,7 @@ public class QuizService {
     /**
      * Create a new quiz and deduct points
      */
+    @Transactional
     public Quiz createQuiz(String title, String category, String difficulty, int noOfQuestions, String createdBy) {
         userPointsService.consumePoints(1)
                 .orElseThrow(() -> new RuntimeException("Insufficient points to create quiz"));
@@ -67,19 +69,23 @@ public class QuizService {
         quiz.setCreatedAt(Instant.now());
         quiz.setCreatedBy(createdBy);
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
-        Quiz savedQuiz = quizDao.save(quiz);
 
+        // Get questions (may be existing pool items or newly generated)
         List<QuizQuestion> questions = quizQuestionService.getOrCreateQuiz(category, difficulty, noOfQuestions);
 
-        // IMPORTANT: Set quiz reference on each question properly for DB foreign key
+        // Attach questions to the quiz without replacing the collection reference
+        // Use managed entity when question already exists in DB
         for (QuizQuestion q : questions) {
-            q.setQuiz(savedQuiz);
+            if (q.getId() > 0) {
+                QuizQuestion managed = quizQuestionDao.findById(q.getId()).orElse(q);
+                quiz.addQuestion(managed);
+            } else {
+                quiz.addQuestion(q); // new entity, cascade will persist it when saving quiz
+            }
         }
 
-        quizQuestionDao.saveAll(questions);
-
-        savedQuiz.setQuestions(questions);
-        quizDao.save(savedQuiz);
+        // Save quiz (CascadeType.ALL on questions will persist new questions and update managed ones)
+        Quiz savedQuiz = quizDao.save(quiz);
 
         profileService.incrementQuizCreatedCount(creator);
         emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
@@ -89,9 +95,9 @@ public class QuizService {
     /**
      * Create a quiz from a PDF and deduct points
      */
+    @Transactional
     public Quiz createQuizFromPdf(MultipartFile pdfFile, String title,
                                   String category, String difficulty, String createdBy) {
-
         // Deduct 1 point atomically
         userPointsService.consumePoints(1)
                 .orElseThrow(() -> new RuntimeException("Insufficient points to create quiz"));
@@ -126,7 +132,6 @@ public class QuizService {
                     ocrText.append(result).append("\n");
                 }
                 pdfText = ocrText.toString();
-
                 if (pdfText.trim().isEmpty()) {
                     throw new RuntimeException("Cannot extract questions: PDF contains no text even after OCR.");
                 }
@@ -155,24 +160,21 @@ public class QuizService {
         quiz.setDifficulty(difficulty != null ? difficulty : "Medium");
         quiz.setCreatedBy(createdBy);
         quiz.setNoOfQuestions(questions.size());
-        quiz.setQuestions(questions);
         quiz.setCreatedAt(Instant.now());
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
 
-        Quiz savedQuiz = quizDao.save(quiz);
+        // Attach extracted questions using addQuestion (do NOT setQuestions directly)
         for (QuizQuestion q : questions) {
-            q.setQuiz(savedQuiz); // instead of q.setId()
+            quiz.addQuestion(q); // these are new entities, cascade will persist them
         }
-        quizQuestionDao.saveAll(questions);
-        savedQuiz.setQuestions(questions);
-        quizDao.save(savedQuiz);
+
+        Quiz savedQuiz = quizDao.save(quiz);
 
         profileService.incrementQuizCreatedCount(creator);
-
         emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
-
         return savedQuiz;
     }
+
     /**
      * Evaluate submission and deduct 1 point for attending quiz
      */
@@ -185,6 +187,7 @@ public class QuizService {
         }
 
         int score = calculateScore(submission);
+
         QuizResult result = new QuizResult();
         result.setQuizId(submission.getQuizId());
         result.setUserId(userId);
@@ -207,7 +210,6 @@ public class QuizService {
         String userId = user.getClerkId();
         Optional<UserPoints> userPoints = userPointsDao.findByClerkId(userId);
         String plan = userPoints.get().getPlan();
-
         switch (plan) {
             case "BASIC" -> {
                 if (noOfQuestions > 10) {
@@ -255,8 +257,9 @@ public class QuizService {
                 .orElseThrow(() -> new RuntimeException("Quiz with id " + id + " not found"));
 
         quiz.setTitle(title);
-        boolean difficultyChanged = !quiz.getDifficulty().equals(difficulty);
-        boolean questionCountChanged = quiz.getNoOfQuestions() != noOfQuestions;
+
+        boolean difficultyChanged = !Objects.equals(quiz.getDifficulty(), difficulty);
+        boolean questionCountChanged = !Objects.equals(quiz.getNoOfQuestions(), noOfQuestions);
 
         if (difficultyChanged || questionCountChanged) {
             quiz.setDifficulty(difficulty);
@@ -266,19 +269,40 @@ public class QuizService {
                     quiz.getCategory(), difficulty, noOfQuestions
             );
 
-            // Remove orphaned questions (those not in newQuestions)
-            List<QuizQuestion> toRemove = quiz.getQuestions().stream()
-                    .filter(q -> !newQuestions.contains(q))
-                    .toList();
+            // If Cohere returned all-new questions (ids == 0), remove all existing questions first.
+            boolean allNew = newQuestions.stream().allMatch(q -> q.getId() <= 0);
 
-            for (QuizQuestion q : toRemove) {
-                quiz.removeQuestion(q);
+            if (allNew) {
+                // remove all existing questions via removeQuestion to keep JPA consistency
+                for (QuizQuestion q : new ArrayList<>(quiz.getQuestions())) {
+                    quiz.removeQuestion(q);
+                }
+            } else {
+                // Do id-based diff: remove existing questions that are not in newQuestions (by id)
+                Set<Integer> newIds = newQuestions.stream()
+                        .filter(q -> q.getId() > 0)
+                        .map(QuizQuestion::getId)
+                        .collect(Collectors.toSet());
+
+                for (QuizQuestion existing : new ArrayList<>(quiz.getQuestions())) {
+                    if (existing.getId() > 0 && !newIds.contains(existing.getId())) {
+                        quiz.removeQuestion(existing);
+                    }
+                }
             }
 
-            // Add new questions not already assigned
+            // Add new questions (use managed instances for id > 0)
             for (QuizQuestion q : newQuestions) {
-                if (!quiz.getQuestions().contains(q)) {
-                    quiz.addQuestion(q);
+                boolean alreadyPresent = quiz.getQuestions().stream()
+                        .anyMatch(e -> e.getId() > 0 && q.getId() == e.getId());
+
+                if (!alreadyPresent) {
+                    if (q.getId() > 0) {
+                        QuizQuestion managed = quizQuestionDao.findById(q.getId()).orElse(q);
+                        quiz.addQuestion(managed);
+                    } else {
+                        quiz.addQuestion(q);
+                    }
                 }
             }
         }
@@ -286,7 +310,7 @@ public class QuizService {
         Quiz updatedQuiz = quizDao.save(quiz);
 
         Optional<Quiz> createdQuiz = quizDao.findById(id);
-        String creator = createdQuiz.get().getCreatedBy();
+        String creator = createdQuiz.map(Quiz::getCreatedBy).orElse(null);
         emailService.sendQuizUpdatedMailToAllExceptCreator(updatedQuiz, creator);
 
         return updatedQuiz;
@@ -301,12 +325,9 @@ public class QuizService {
         if (!quiz.getParticipants().contains(userId)) {
             quiz.getParticipants().add(userId);
             Quiz updatedQuiz = quizDao.save(quiz);
-
             Optional<Quiz> createdQuiz = quizDao.findById(quizId);
-            String creator = createdQuiz.get().getCreatedBy();
-
+            String creator = createdQuiz.map(Quiz::getCreatedBy).orElse(null);
             emailService.sendParticipantJoinedMailToCreator(updatedQuiz, userId, creator);
-
             return updatedQuiz;
         }
         return quiz;
