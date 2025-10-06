@@ -78,12 +78,7 @@ public class QuizService {
         // Attach questions to the quiz without replacing the collection reference
         // Use managed entity when question already exists in DB
         for (QuizQuestion q : questions) {
-            if (q.getId() > 0) {
-                QuizQuestion managed = quizQuestionDao.findById(q.getId()).orElse(q);
-                quiz.addQuestion(managed);
-            } else {
-                quiz.addQuestion(q); // new entity, cascade will persist it when saving quiz
-            }
+            quiz.addQuestion(q);
         }
 
         // Save quiz (CascadeType.ALL on questions will persist new questions and update managed ones)
