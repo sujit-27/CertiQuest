@@ -1,6 +1,5 @@
 package com.web.CertiQuest.model;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -32,20 +31,6 @@ public class QuizQuestion {
     private String correctAnswer;
 
     private String difficultyLevel;
-
-    // 🔹 Link back to Quiz
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "quiz_id", nullable = false)
-    @JsonBackReference
-    private Quiz quiz;
-
-    // Optional: convenience constructor for quick creation
-    public QuizQuestion(String question, List<String> options, String correctAnswer, String difficultyLevel) {
-        this.question = question;
-        this.options = options;
-        this.correctAnswer = correctAnswer;
-        this.difficultyLevel = difficultyLevel;
-    }
 
     public int getId() {
         return id;
@@ -95,11 +80,15 @@ public class QuizQuestion {
         this.difficultyLevel = difficultyLevel;
     }
 
-    public Quiz getQuiz() {
-        return quiz;
-    }
-
-    public void setQuiz(Quiz quiz) {
-        this.quiz = quiz;
+    @Override
+    public String toString() {
+        return "QuizQuestion{" +
+                "id=" + id +
+                ", question='" + question + '\'' +
+                ", category='" + category + '\'' +
+                ", options=" + options +
+                ", correctAnswer='" + correctAnswer + '\'' +
+                ", difficultyLevel='" + difficultyLevel + '\'' +
+                '}';
     }
 }
