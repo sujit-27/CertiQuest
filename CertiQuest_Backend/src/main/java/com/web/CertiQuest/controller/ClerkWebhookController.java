@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.web.CertiQuest.dto.ProfileDto;
 import com.web.CertiQuest.service.ProfileService;
+import com.web.CertiQuest.service.UserPointsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,24 +24,26 @@ public class ClerkWebhookController {
     @Autowired
     private ProfileService profileService;
 
+    @Autowired
+    private UserPointsService userPointsService;
+
     @PostMapping("/clerk")
     public ResponseEntity<?> handleClerkWebhook(@RequestHeader("svix-id") String svixId,
                                                 @RequestHeader("svix-timestamp") String svixTimestamp,
                                                 @RequestHeader("svix-signature") String svixSignature,
-                                                @RequestBody String payload) {
-        System.out.println("✅ Webhook Received from Clerk");
+                                                @RequestBody String payload){
 
-        try {
+        try{
             boolean isValid = verifyWebhookSignature(svixId, svixTimestamp, svixSignature, payload);
-            if (!isValid) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid webhook signature");
+            if(!isValid){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid webhook Signature");
             }
 
             ObjectMapper mapper = new ObjectMapper();
             JsonNode rootNode = mapper.readTree(payload);
             String eventType = rootNode.path("type").asText();
 
-            switch (eventType) {
+            switch (eventType){
                 case "user.created":
                     handleUserCreated(rootNode.path("data"));
                     break;
@@ -50,8 +53,6 @@ public class ClerkWebhookController {
                 case "user.deleted":
                     handleUserDeleted(rootNode.path("data"));
                     break;
-                default:
-                    System.out.println("ℹ️ Unhandled Clerk event type: " + eventType);
             }
 
             return ResponseEntity.ok().build();
@@ -62,63 +63,61 @@ public class ClerkWebhookController {
 
     private void handleUserDeleted(JsonNode data) {
         String clerkId = data.path("id").asText();
-        System.out.println("🗑 Deleting profile for clerkId: " + clerkId);
+
         profileService.deleteProfile(clerkId);
     }
 
     private void handleUserUpdated(JsonNode data) {
-        ProfileDto updatedProfile = extractProfileDtoFromClerkData(data);
-        updatedProfile = profileService.updateProfile(updatedProfile);
-        if (updatedProfile == null) {
-            // If user not found, create a new one
-            handleUserCreated(data);
-        }
-    }
-
-    private void handleUserCreated(JsonNode data) {
-        ProfileDto newProfile = extractProfileDtoFromClerkData(data);
-        ProfileDto savedProfile = profileService.createProfile(newProfile);
-        System.out.println("🎉 New Profile Created: " + savedProfile);
-    }
-
-    /**
-     * Extracts ProfileDto from Clerk's webhook payload.
-     * Pulls out email, name, photo, and public_metadata (role & plan).
-     */
-    private ProfileDto extractProfileDtoFromClerkData(JsonNode data) {
         String clerkId = data.path("id").asText();
-
         String email = "";
         JsonNode emailAddresses = data.path("email_addresses");
-        if (emailAddresses.isArray() && !emailAddresses.isEmpty()) {
+        if(emailAddresses.isArray() && !emailAddresses.isEmpty()){
             email = emailAddresses.get(0).path("email_address").asText();
         }
-
         String firstName = data.path("first_name").asText("");
         String lastName = data.path("last_name").asText("");
         String photoUrl = data.path("image_url").asText("");
 
-        // 🔑 Extract custom fields from public_metadata
-        JsonNode publicMetadata = data.path("public_metadata");
-        String role = publicMetadata.path("role").asText("").toUpperCase(); // e.g., "ADMIN", "USER"
-        String plan = publicMetadata.path("plan").asText("").toUpperCase(); // e.g., "FREE", "PRO"
+        ProfileDto updatedProfile = new ProfileDto();
+        updatedProfile.setClerkId(clerkId);
+        updatedProfile.setEmail(email);
+        updatedProfile.setFirstName(firstName);
+        updatedProfile.setLastName(lastName);
+        updatedProfile.setPhotoUrl(photoUrl);
 
-        System.out.println("📩 Clerk Webhook Data → Role: " + role + ", Plan: " + plan);
+        updatedProfile = profileService.updateProfile(updatedProfile);
 
-        ProfileDto dto = new ProfileDto();
-        dto.setClerkId(clerkId);
-        dto.setEmail(email);
-        dto.setFirstName(firstName);
-        dto.setLastName(lastName);
-        dto.setPhotoUrl(photoUrl);
+        if(updatedProfile == null){
+            handleUserCreated(data);
+        }
 
-        if (!plan.isEmpty()) dto.setPlan(plan);
+    }
 
-        return dto;
+    private void handleUserCreated(JsonNode data) {
+        String clerkId = data.path("id").asText();
+        String email = "";
+        JsonNode emailAddresses = data.path("email_addresses");
+        if(emailAddresses.isArray() && !emailAddresses.isEmpty()){
+            email = emailAddresses.get(0).path("email_address").asText();
+        }
+        String firstName = data.path("first_name").asText("");
+        String lastName = data.path("last_name").asText("");
+        String photoUrl = data.path("image_url").asText("");
+
+        ProfileDto newProfile = new ProfileDto();
+        newProfile.setClerkId(clerkId);
+        newProfile.setEmail(email);
+        newProfile.setFirstName(firstName);
+        newProfile.setLastName(lastName);
+        newProfile.setPhotoUrl(photoUrl);
+
+        String value = String.valueOf(profileService.createProfile(newProfile));
+        System.out.println(value);
+        userPointsService.createInitialPoints(clerkId);
+
     }
 
     private boolean verifyWebhookSignature(String svixId, String svixTimestamp, String svixSignature, String payload) {
-        // ✅ Stub for now — you can add actual verification using Clerk's Java SDK later
         return true;
     }
 
