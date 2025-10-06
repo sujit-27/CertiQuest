@@ -1,13 +1,16 @@
 package com.web.CertiQuest.service;
 
+import com.resend.Resend;
+import com.resend.core.exception.ResendException;
+import com.resend.services.emails.model.CreateEmailOptions;
+import com.resend.services.emails.model.CreateEmailResponse;
+import com.resend.services.emails.model.Email;
 import com.web.CertiQuest.dao.ProfileDao;
 import com.web.CertiQuest.model.Profile;
 import com.web.CertiQuest.model.Quiz;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,22 +20,23 @@ public class EmailService {
 
     private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
-    @Autowired
-    private JavaMailSender mailSender;
+    private final ProfileDao profileDao;
+    private final Resend resend;
 
-    @Autowired
-    private ProfileDao profileDao;
+    public EmailService(ProfileDao profileDao, @Value("${resend.api.key}") String apiKey) {
+        this.profileDao = profileDao;
+        this.resend = new Resend(apiKey);
+    }
 
+    // ---------------- Send new quiz notification ----------------
     public void sendQuizCreatedMailToAllExceptCreator(Quiz quiz, String creatorClerkId) {
         List<Profile> profiles = profileDao.findAll();
         Profile creatorProfile = profileDao.findByClerkId(creatorClerkId);
-
         if (creatorProfile == null || creatorProfile.getEmail() == null) {
             logger.error("Creator profile or email not found for clerkId: {}", creatorClerkId);
             return;
         }
         String creatorEmail = creatorProfile.getEmail();
-
         String subject = "CertiQuest: 🧠 New Quiz Available – " + quiz.getTitle();
         String body = buildQuizCreatedEmailBody(quiz);
 
@@ -42,16 +46,15 @@ public class EmailService {
                 .forEach(email -> sendEmail(email, subject, body));
     }
 
+    // ---------------- Send updated quiz notification ----------------
     public void sendQuizUpdatedMailToAllExceptCreator(Quiz quiz, String creatorClerkId) {
         List<Profile> profiles = profileDao.findAll();
         Profile creatorProfile = profileDao.findByClerkId(creatorClerkId);
-
         if (creatorProfile == null || creatorProfile.getEmail() == null) {
             logger.error("Creator profile or email not found for clerkId: {}", creatorClerkId);
             return;
         }
         String creatorEmail = creatorProfile.getEmail();
-
         String subject = "CertiQuest: 🔄 Quiz Updated – " + quiz.getTitle();
         String body = buildQuizUpdatedEmailBody(quiz);
 
@@ -61,7 +64,7 @@ public class EmailService {
                 .forEach(email -> sendEmail(email, subject, body));
     }
 
-
+    // ---------------- Notify creator about participant ----------------
     public void sendParticipantJoinedMailToCreator(Quiz quiz, String participantClerkId, String creatorClerkId) {
         Profile creatorProfile = profileDao.findByClerkId(creatorClerkId);
         Profile participantProfile = profileDao.findByClerkId(participantClerkId);
@@ -89,26 +92,32 @@ public class EmailService {
                 "You can monitor participant progress and results in your dashboard.\n\n" +
                 "— The CertiQuest Team";
 
-        try {
-            sendEmail(creatorEmail, subject, body);
-        } catch (Exception e) {
-            logger.error("Failed to send email to {}: {}", creatorEmail, e.getMessage());
-        }
+        sendEmail(creatorEmail, subject, body);
     }
 
-    private void sendEmail(String to, String subject, String text) {
+    // ---------------- Core email sender using Resend ----------------
+    private void sendEmail(String to, String subject, String htmlBody) {
         try {
-            SimpleMailMessage msg = new SimpleMailMessage();
-            msg.setTo(to);
-            msg.setSubject(subject);
-            msg.setText(text);
-            mailSender.send(msg);
-            logger.info("✅ Mail sent to {}", to);
-        } catch (Exception e) {
+            // Create an email object using the Resend SDK
+            CreateEmailOptions params = CreateEmailOptions.builder()
+                    .from("CertiQuest <onboarding@resend.dev>") // Use your verified Resend email
+                    .to(to)
+                    .subject(subject)
+                    .html(htmlBody)
+                    .build();
+
+            // Send the email using the Resend SDK
+            CreateEmailResponse response = resend.emails().send(params);
+
+            // Log the response ID
+            logger.info("✅ Mail sent successfully to {}: {}", to, response.getId());
+        } catch (ResendException e) {
             logger.error("❌ Error sending mail to {}: {}", to, e.getMessage());
         }
     }
 
+
+    // ---------------- Email templates ----------------
     private String buildQuizCreatedEmailBody(Quiz quiz) {
         return "Hello!\n\n" +
                 "A new quiz has just been created on CertiQuest, and we wanted you to be among the first to know!\n\n" +
