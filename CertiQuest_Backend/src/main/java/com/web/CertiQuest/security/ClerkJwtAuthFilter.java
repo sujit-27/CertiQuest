@@ -31,76 +31,58 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
     private ClerkJwksProvider jwksProvider;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
-        String uri = request.getRequestURI();
-
-        // ===== Public endpoints that don't need authentication =====
-        if (uri.startsWith("/api/v1.0/webhooks") ||   // Clerk webhooks
-                uri.startsWith("/api/leaderboard") ||
-                uri.startsWith("/api/certificates/download") ||
-                request.getMethod().equalsIgnoreCase("OPTIONS")) { // Preflight
-            filterChain.doFilter(request, response);
+        if(request.getRequestURI().contains("/webhooks") || request.getRequestURI().contains("/leaderboard") || request.getRequestURI().contains("/download")){
+            filterChain.doFilter(request,response);
             return;
         }
 
         String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Authorization header missing or invalid");
+
+        if(authHeader == null || !authHeader.startsWith("Bearer")){
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Authorization header missing/invalid");
             return;
         }
 
-        try {
+        try{
             String token = authHeader.substring(7);
-            String[] tokenParts = token.split("\\.");
-            if (tokenParts.length < 3) {
+            String[] chunks = token.split("\\.");
+            if(chunks.length < 3){
                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid JWT Token format");
                 return;
             }
 
-            // Decode JWT header to get "kid"
-            String headerJson = new String(Base64.getUrlDecoder().decode(tokenParts[0]));
+            String headerJson = new String(Base64.getUrlDecoder().decode(chunks[0]));
             ObjectMapper mapper = new ObjectMapper();
-            JsonNode headerNode = mapper.readTree(headerJson);
-            if (!headerNode.has("kid")) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Token header missing 'kid'");
+            JsonNode headerNode =  mapper.readTree(headerJson);
+
+            if(!headerNode.has("kid")){
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Token header is missing");
                 return;
             }
 
             String kid = headerNode.get("kid").asText();
             PublicKey publicKey = jwksProvider.getPublicKey(kid);
 
-            // Parse JWT claims: LEGACY JJWT SYNTAX
-            Claims claims = Jwts.parserBuilder()
-                    .setSigningKey(publicKey)
-                    .setAllowedClockSkewSeconds(60)
+            Claims claims = Jwts.parser()
+                    .verifyWith(publicKey)
+                    .clockSkewSeconds(60)
                     .requireIssuer(clerkIssuer)
-                    .build() // returns JwtParser
-                    .parseClaimsJws(token) // parse here
-                    .getBody();
-
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
 
             String clerkId = claims.getSubject();
-            String role = claims.get("role", String.class);
 
-            UsernamePasswordAuthenticationToken authenticationToken =
-                    new UsernamePasswordAuthenticationToken(
-                            clerkId,
-                            null,
-                            Collections.singletonList(
-                                    new SimpleGrantedAuthority(
-                                            role != null ? "ROLE_" + role.toUpperCase() : "ROLE_USER"
-                                    )
-                            )
-                    );
-            SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+            UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(clerkId,null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
 
-            filterChain.doFilter(request, response);
-
-        } catch (Exception e) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid JWT Token: " + e.getMessage());
+            SecurityContextHolder.getContext().setAuthentication((authenticationToken));
+            filterChain.doFilter(request,response);
+        } catch (Exception e){
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid JWT Token: "+e.getMessage());
+            return;
         }
+
     }
 }
