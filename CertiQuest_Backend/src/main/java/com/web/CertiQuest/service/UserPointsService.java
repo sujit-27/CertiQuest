@@ -27,7 +27,7 @@ public class UserPointsService {
     private static final String DEFAULT_PLAN = "FREE";
 
 
-    private UserPoints createInitialPoints(String clerkId) {
+    public UserPoints createInitialPoints(String clerkId) {
         UserPoints userPoints = new UserPoints();
         userPoints.setClerkId(clerkId);
         userPoints.setPoints(DEFAULT_POINTS);
