@@ -311,7 +311,6 @@ public class QuizService {
 
         Optional<Quiz> createdQuiz = quizDao.findById(id);
         String creator = createdQuiz.map(Quiz::getCreatedBy).orElse(null);
-        emailService.sendQuizUpdatedMailToAllExceptCreator(updatedQuiz, creator);
 
         return updatedQuiz;
     }
