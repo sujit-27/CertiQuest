@@ -39,10 +39,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1.0/webhooks/**",
                                 "/api/certificates/download/**",
-                                "/api/leaderboard/**",
-                                "/api/certificates",
-                                "/api/transactions",
-                                "/users/points"
+                                "/api/leaderboard/**"
                         ).permitAll()
 
                         // ===== Everything else requires authentication =====
@@ -61,9 +58,10 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
                 "http://localhost:8080",
-                "https://certi-quest-gamma.vercel.app",
+                "https://certi-quest-ten.vercel.app",
+                "certi-quest-git-main-sujti-kumar-shaws-projects.vercel.app",
+                "certi-quest-a1h6knx8s-sujti-kumar-shaws-projects.vercel.app",
                 "https://certiquest.up.railway.app",
-                "https://certiquest-vm3s.onrender.com"
 
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
