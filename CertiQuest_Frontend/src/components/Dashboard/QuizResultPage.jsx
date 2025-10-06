@@ -127,6 +127,7 @@ const QuizResultPage = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {quiz.questions.map((q, idx) => {
+              console.log(q)
               const userAnswer = answers[q.id];
               const isCorrect = userAnswer === q.correctAnswer;
 
