@@ -179,7 +179,6 @@ public class Quiz {
                 ", createdAt=" + createdAt +
                 ", expiryDate=" + expiryDate +
                 ", noOfQuestions=" + noOfQuestions +
-                ", questions=" + questions +
                 ", participants=" + participants +
                 '}';
     }
