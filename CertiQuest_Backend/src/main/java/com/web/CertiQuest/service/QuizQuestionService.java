@@ -196,43 +196,57 @@ public class QuizQuestionService {
 
     // ---------------- Extract questions from text ----------------
     public List<QuizQuestion> extractQuestionsFromText(String pdfText, String category, String difficulty) {
-        List<QuizQuestion> extracted = new ArrayList<>();
-        String[] parts = pdfText.split("(?i)question\\s*\\d+[:.-]");
-        int index = 1;
+    List<QuizQuestion> extracted = new ArrayList<>();
 
-        for (String part : parts) {
-            if (part.trim().isEmpty()) continue;
-            String[] lines = part.trim().split("\n");
-            if (lines.length < 5) continue;
+    // Normalize text: put each option on a new line
+    String normalizedText = pdfText.replaceAll("(?<=\\)|\\d\\.)\\s+", "\n");
 
-            QuizQuestion q = new QuizQuestion();
-            q.setCategory(category);
-            q.setDifficultyLevel(difficulty);
-            q.setQuestion(lines[0].trim());
+    // Split by question number
+    String[] parts = normalizedText.split("(?i)question\\s*\\d+[:.-]");
+    for (String part : parts) {
+        if (part.trim().isEmpty()) continue;
 
-            // Extract 4 options
-            List<String> opts = Arrays.stream(lines)
-                    .skip(1)
-                    .filter(l -> l.matches("^[A-Da-d]\\.?\\s?.+"))
-                    .map(l -> l.replaceFirst("^[A-Da-d]\\.?\\s*", "").trim())
-                    .collect(Collectors.toList());
+        QuizQuestion q = new QuizQuestion();
+        q.setCategory(category);
+        q.setDifficultyLevel(difficulty);
 
-            if (opts.size() < 4) {
-                opts = List.of("Option A", "Option B", "Option C", "Option D");
-            }
-            q.setOptions(opts);
+        // Try to separate question and options
+        String[] lines = part.trim().split("\n");
 
-            String correct = Arrays.stream(lines)
-                    .filter(l -> l.toLowerCase().contains("answer:"))
-                    .findFirst()
-                    .map(l -> l.substring(l.indexOf(":") + 1).trim())
-                    .orElse("Option A");
+        // First non-empty line is the question
+        String questionText = Arrays.stream(lines)
+                .filter(l -> !l.trim().isEmpty() && !l.toLowerCase().contains("answer:"))
+                .findFirst()
+                .orElse("Sample question");
+        q.setQuestion(questionText.trim());
 
-            q.setCorrectAnswer(correct);
-            extracted.add(q);
-            index++;
+        // Extract options: lines starting with A/B/C/D or similar
+        List<String> opts = Arrays.stream(lines)
+                .filter(l -> l.matches("^[A-Da-d]\\).*") || l.matches("^[A-Da-d]\\..*"))
+                .map(l -> l.replaceFirst("^[A-Da-d]\\).*", "")
+                           .replaceFirst("^[A-Da-d]\\..*", "")
+                           .trim())
+                .collect(Collectors.toList());
+
+        // Ensure 4 options
+        if (opts.size() < 4) {
+            opts = List.of("Option A", "Option B", "Option C", "Option D");
         }
+        q.setOptions(opts);
 
-        return extracted;
+        // Extract correct answer
+        String correct = Arrays.stream(lines)
+                .flatMap(l -> Arrays.stream(l.split("\\)"))) // split if answer runs with options
+                .filter(l -> l.toLowerCase().contains("answer:"))
+                .findFirst()
+                .map(l -> l.substring(l.toLowerCase().indexOf("answer:") + 7).trim())
+                .orElse("Option A");
+        q.setCorrectAnswer(correct);
+
+        extracted.add(q);
     }
+
+    return extracted;
+}
+
 }
