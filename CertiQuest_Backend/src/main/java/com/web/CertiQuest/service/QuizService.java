@@ -92,7 +92,6 @@ public class QuizService {
         System.out.println(savedQuiz);
 
         profileService.incrementQuizCreatedCount(creator);
-        emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
         return savedQuiz;
     }
 
@@ -172,7 +171,7 @@ public class QuizService {
         Quiz savedQuiz = quizDao.save(quiz);
 
         profileService.incrementQuizCreatedCount(creator);
-        emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
+        
 
         return savedQuiz;
     }
@@ -351,7 +350,7 @@ public class QuizService {
             Quiz updatedQuiz = quizDao.save(quiz);
             Optional<Quiz> createdQuiz = quizDao.findById(quizId);
             String creator = createdQuiz.map(Quiz::getCreatedBy).orElse(null);
-            emailService.sendParticipantJoinedMailToCreator(updatedQuiz, userId, creator);
+            
             return updatedQuiz;
         }
         return quiz;
