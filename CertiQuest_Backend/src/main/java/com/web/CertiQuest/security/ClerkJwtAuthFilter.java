@@ -24,6 +24,8 @@ import java.security.PublicKey;
 import java.util.Base64;
 import java.util.Collections;
 
+import static io.jsonwebtoken.Jwts.*;
+
 @Component
 public class ClerkJwtAuthFilter extends OncePerRequestFilter {
 
@@ -43,8 +45,7 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
 
         // Skip certain endpoints
         if (path.contains("/webhooks") || path.contains("/leaderboard") ||
-                path.contains("/download") || path.equals("/api/quiz/create") ||
-                path.equals("/users/points")) {
+                path.contains("/download")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -81,7 +82,7 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
             PublicKey publicKey = jwksProvider.getPublicKey(kid);
 
             Claims claims = Jwts.parserBuilder()
-                    .setSigningKey(publicKey)
+                    .setSigningKey(publicKey)   // use your PublicKey
                     .requireIssuer(clerkIssuer)
                     .build()
                     .parseClaimsJws(token)
