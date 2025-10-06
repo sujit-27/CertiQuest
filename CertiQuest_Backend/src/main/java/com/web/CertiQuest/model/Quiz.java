@@ -167,4 +167,21 @@ public class Quiz {
     public void setParticipants(List<String> participants) {
         this.participants = participants;
     }
+
+    @Override
+    public String toString() {
+        return "Quiz{" +
+                "id=" + id +
+                ", title='" + title + '\'' +
+                ", category='" + category + '\'' +
+                ", difficulty='" + difficulty + '\'' +
+                ", createdBy='" + createdBy + '\'' +
+                ", createdAt=" + createdAt +
+                ", expiryDate=" + expiryDate +
+                ", noOfQuestions=" + noOfQuestions +
+                ", questions=" + questions +
+                ", participants=" + participants +
+                '}';
+    }
+
 }
