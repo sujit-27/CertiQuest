@@ -1,6 +1,5 @@
 package com.web.CertiQuest.model;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -9,6 +8,7 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 @Entity
@@ -22,31 +22,23 @@ public class Quiz {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false)
     private String title;
-
-    @Column(nullable = false)
     private String category;
-
-    @Column(nullable = false)
     private String difficulty;
-
-    @Column(nullable = false)
     private String createdBy;
-
-    @Column(nullable = false, updatable = false)
     private Instant createdAt;
-
     private LocalDate expiryDate;
+    private Integer noOfQuestions;
 
-    @Column(nullable = false)
-    private Integer noOfQuestions = 0;
-
-    @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonManagedReference
+    // ✅ Keep orphanRemoval = true to clean up unlinked questions,
+    // but use helper methods instead of replacing the list directly.
+    @OneToMany(mappedBy = "quiz",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY)
     private List<QuizQuestion> questions = new ArrayList<>();
 
-    @ElementCollection(fetch = FetchType.LAZY)
+    @ElementCollection
     @CollectionTable(name = "quiz_participants", joinColumns = @JoinColumn(name = "quiz_id"))
     @Column(name = "participant_id")
     private List<String> participants = new ArrayList<>();
@@ -57,19 +49,42 @@ public class Quiz {
         if (expiryDate == null) expiryDate = LocalDate.now().plusDays(7);
     }
 
-    // Add and remove methods enforce JPA consistency and avoid duplicates
+    // ==========================
+    // 🔹 Helper Methods — CRITICAL for JPA consistency
+    // ==========================
+
+    /**
+     * Adds a question to this quiz and sets the quiz reference
+     * on the question side to keep the relationship in sync.
+     */
     public void addQuestion(QuizQuestion question) {
-        if (questions == null) questions = new ArrayList<>();
-        if (!questions.contains(question)) {
-            questions.add(question);
+        if (question == null) return;
+        if (!this.questions.contains(question)) {
+            this.questions.add(question);
             question.setQuiz(this);
         }
     }
 
+    /**
+     * Removes a question from this quiz and clears its quiz reference.
+     * Using this avoids orphan deletion issues when updating quizzes.
+     */
     public void removeQuestion(QuizQuestion question) {
-        if (questions != null && questions.contains(question)) {
-            questions.remove(question);
+        if (question == null) return;
+        if (this.questions.remove(question)) {
             question.setQuiz(null);
+        }
+    }
+
+    /**
+     * Removes all existing questions safely while maintaining
+     * bidirectional consistency.
+     */
+    public void clearQuestions() {
+        for (Iterator<QuizQuestion> iterator = questions.iterator(); iterator.hasNext(); ) {
+            QuizQuestion question = iterator.next();
+            question.setQuiz(null);
+            iterator.remove();
         }
     }
 
