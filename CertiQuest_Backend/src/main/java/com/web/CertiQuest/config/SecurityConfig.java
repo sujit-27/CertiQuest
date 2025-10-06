@@ -40,6 +40,7 @@ public class SecurityConfig {
                                 "/api/v1.0/webhooks/**",
                                 "/api/certificates/download/**",
                                 "/api/leaderboard/**",
+                                "/api/certificates",
                                 "/api/transactions",
                                 "/users/points"
                         ).permitAll()
