@@ -167,6 +167,6 @@ public class QuizQuestionService {
             throw new RuntimeException("Cohere returned no questions from the text.");
         }
 
-        return questions;
+        return questions; // ❌ Do NOT save here, QuizService will handle saving after setting quizId
     }
 }
