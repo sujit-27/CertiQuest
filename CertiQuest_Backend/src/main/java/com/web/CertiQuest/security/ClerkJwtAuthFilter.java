@@ -70,14 +70,15 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
             ObjectMapper mapper = new ObjectMapper();
             JsonNode headerNode = mapper.readTree(headerJson);
             String kid = headerNode.get("kid").asText();
+            PublicKey publicKey = jwksProvider.getPublicKey(kid);
 
-            PublicKey publicKey = jwksProvider.getKeyById(kid);
-            Claims claims = Jwts.parserBuilder()
-                    .setSigningKey(publicKey)
+            Claims claims = Jwts.parser()
+                    .verifyWith(publicKey)
+                    .clockSkewSeconds(60)
                     .requireIssuer(clerkIssuer)
                     .build()
-                    .parseClaimsJws(token)
-                    .getBody();
+                    .parseSignedClaims(token)
+                    .getPayload();
 
             String userId = claims.getSubject();
 
