@@ -6,7 +6,9 @@ import com.web.CertiQuest.model.UserPoints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -54,6 +56,7 @@ public class UserPointsService {
                 .orElse(false);
     }
 
+    @Transactional
     public Optional<UserPoints> consumePoints(int requiredPoints) {
         Profile profile = profileService.getCurrentProfile();
         if (profile == null) {
@@ -62,30 +65,41 @@ public class UserPointsService {
         }
 
         String clerkId = profile.getClerkId();
-        Optional<UserPoints> optionalUserPoints = repo.findByClerkId(clerkId);
+        int maxRetries = 3;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                Optional<UserPoints> optionalUserPoints = repo.findByClerkId(clerkId);
+                if (optionalUserPoints.isEmpty()) {
+                    logger.warn("No UserPoints found for clerkId {} to consume", clerkId);
+                    return Optional.empty();
+                }
 
-        if (optionalUserPoints.isEmpty()) {
-            logger.warn("No UserPoints found for clerkId {} to consume", clerkId);
-            return Optional.empty();
+                UserPoints userPoints = optionalUserPoints.get();
+                if (userPoints.getPoints() < requiredPoints) {
+                    logger.info("User {} has insufficient points (needed {}, has {})",
+                            clerkId, requiredPoints, userPoints.getPoints());
+                    return Optional.empty();
+                }
+
+                // Deduct points
+                userPoints.setPoints(userPoints.getPoints() - requiredPoints);
+                UserPoints updated = repo.save(userPoints); // optimistic lock checks version
+                logger.info("Consumed {} points for user {}, new balance: {}",
+                        requiredPoints, clerkId, updated.getPoints());
+                return Optional.of(updated);
+
+            } catch (ObjectOptimisticLockingFailureException e) {
+                logger.warn("Optimistic lock failed on attempt {} for user {}, retrying...", attempt, clerkId);
+                if (attempt == maxRetries) {
+                    logger.error("Failed to consume points for user {} after {} attempts", clerkId, maxRetries);
+                    return Optional.empty();
+                }
+                try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+            }
         }
-
-        UserPoints userPoints = optionalUserPoints.get();
-
-        if (userPoints.getPoints() < requiredPoints) {
-            logger.info("User {} has insufficient points (needed {}, has {})",
-                    clerkId, requiredPoints, userPoints.getPoints());
-            return Optional.empty();
-        }
-
-        // Deduct required points
-        userPoints.setPoints(userPoints.getPoints() - requiredPoints);
-        UserPoints updatedUserPoints = repo.save(userPoints);
-
-        logger.info("Consumed {} points for user {}, new balance: {}",
-                requiredPoints, clerkId, updatedUserPoints.getPoints());
-
-        return Optional.of(updatedUserPoints);
+        return Optional.empty();
     }
+
 
     public void addPoints(String clerkId, int pointsToAdd, String plan) {
         UserPoints userPoints = repo.findByClerkId(clerkId)
