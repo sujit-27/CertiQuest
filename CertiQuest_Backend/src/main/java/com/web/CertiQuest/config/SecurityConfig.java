@@ -39,7 +39,9 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1.0/webhooks/**",
                                 "/api/certificates/download/**",
-                                "/api/leaderboard/**"
+                                "/api/leaderboard/**",
+                                "/api/transactions",
+                                "/users/points"
                         ).permitAll()
 
                         // ===== Everything else requires authentication =====
