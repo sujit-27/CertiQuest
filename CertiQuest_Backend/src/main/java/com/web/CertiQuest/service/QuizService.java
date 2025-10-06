@@ -49,7 +49,6 @@ public class QuizService {
      * Create a new quiz and deduct points
      */
     public Quiz createQuiz(String title, String category, String difficulty, int noOfQuestions, String createdBy) {
-        // Deduct 1 point atomically
         userPointsService.consumePoints(1)
                 .orElseThrow(() -> new RuntimeException("Insufficient points to create quiz"));
 
@@ -60,8 +59,6 @@ public class QuizService {
         Profile creator = profileService.getCurrentProfile();
         validateAdminPlanForQuizCreation(creator, difficulty, noOfQuestions);
 
-        List<QuizQuestion> questions = quizQuestionService.getOrCreateQuiz(category, difficulty, noOfQuestions);
-
         Quiz quiz = new Quiz();
         quiz.setTitle(title);
         quiz.setCategory(category);
@@ -69,15 +66,23 @@ public class QuizService {
         quiz.setNoOfQuestions(noOfQuestions);
         quiz.setCreatedAt(Instant.now());
         quiz.setCreatedBy(createdBy);
-        quiz.setQuestions(questions);
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
-
         Quiz savedQuiz = quizDao.save(quiz);
 
+        List<QuizQuestion> questions = quizQuestionService.getOrCreateQuiz(category, difficulty, noOfQuestions);
+
+        // IMPORTANT: Set quiz reference on each question properly for DB foreign key
+        for (QuizQuestion q : questions) {
+            q.setQuiz(savedQuiz);
+        }
+
+        quizQuestionDao.saveAll(questions);
+
+        savedQuiz.setQuestions(questions);
+        quizDao.save(savedQuiz);
+
         profileService.incrementQuizCreatedCount(creator);
-
         emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
-
         return savedQuiz;
     }
 
@@ -155,6 +160,12 @@ public class QuizService {
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
 
         Quiz savedQuiz = quizDao.save(quiz);
+        for (QuizQuestion q : questions) {
+            q.setQuiz(savedQuiz); // instead of q.setId()
+        }
+        quizQuestionDao.saveAll(questions);
+        savedQuiz.setQuestions(questions);
+        quizDao.save(savedQuiz);
 
         profileService.incrementQuizCreatedCount(creator);
 
