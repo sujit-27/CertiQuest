@@ -111,21 +111,6 @@ public class QuizQuestionService {
         return text;
     }
 
-    // ---------------- Parse JSON to QuizQuestion ----------------
-    private List<QuizQuestion> parseQuestions(String json, String category, String difficulty) {
-        try {
-            List<QuizQuestion> questions = objectMapper.readValue(json, new TypeReference<>() {});
-            for (QuizQuestion q : questions) {
-                q.setCategory(category);
-                q.setDifficultyLevel(difficulty);
-            }
-            return questions;
-        } catch (Exception e) {
-            logger.error("Error parsing JSON from Cohere: {}", e.getMessage());
-            throw new RuntimeException("Error parsing Cohere response: " + json, e);
-        }
-    }
-
     // ---------------- Generate questions ----------------
     public List<QuizQuestion> generateQuestions(String category, String difficulty, int noOfQuestions) {
         String prompt = buildPrompt(category, difficulty, noOfQuestions);
@@ -136,11 +121,32 @@ public class QuizQuestionService {
     // ---------------- Get or create quiz ----------------
     public List<QuizQuestion> getOrCreateQuiz(String category, String difficulty, int noOfQuestions) {
         List<QuizQuestion> existing = quizQuestionDao.findByCategoryAndDifficultyLevel(category, difficulty);
+
         if (!existing.isEmpty() && existing.size() >= noOfQuestions) {
             return existing.subList(0, noOfQuestions);
         }
-        return generateQuestions(category, difficulty, noOfQuestions);
+
+        String prompt = buildPrompt(category, difficulty, noOfQuestions);
+        String response = callCohereAPI(prompt);
+        List<QuizQuestion> generated = parseQuestions(response, category, difficulty);
+        // Do NOT save here, QuizService will save after setting quizId
+        return generated;
     }
+
+    private List<QuizQuestion> parseQuestions(String json, String category, String difficulty) {
+        try {
+            List<QuizQuestion> questions = objectMapper.readValue(json, new TypeReference<List<QuizQuestion>>() {});
+            for (QuizQuestion q : questions) {
+                q.setCategory(category);
+                q.setDifficultyLevel(difficulty);
+            }
+            return questions;
+        } catch (Exception e) {
+            logger.error("Error parsing Cohere JSON response: {}", e.getMessage());
+            throw new RuntimeException("Error parsing Cohere response: " + json, e);
+        }
+    }
+
 
     // ---------------- Extract questions from text ----------------
     public List<QuizQuestion> extractQuestionsFromText(String text, String category, String difficulty) {
