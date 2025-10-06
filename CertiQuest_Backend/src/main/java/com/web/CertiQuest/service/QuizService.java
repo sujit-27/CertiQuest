@@ -170,7 +170,6 @@ public class QuizService {
         Quiz savedQuiz = quizDao.save(quiz);
 
         profileService.incrementQuizCreatedCount(creator);
-        emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
 
         return savedQuiz;
     }
