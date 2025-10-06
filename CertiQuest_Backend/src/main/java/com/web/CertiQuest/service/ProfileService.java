@@ -25,15 +25,11 @@ public class ProfileService {
 
     private static final Profile.Plan DEFAULT_USER_PLAN = Profile.Plan.FREE;
     private static final int DEFAULT_USER_POINTS = 10;
-    
-    String currentClerkId;
 
     public ProfileDto createProfile(ProfileDto profileDto) {
         if (repo.existsByClerkId(profileDto.getClerkId())) {
             return updateProfile(profileDto);
         }
-        
-        currentClerkId = profileDto.getClerkId();
 
         Profile profile = new Profile();
         profile.setClerkId(profileDto.getClerkId());
@@ -85,7 +81,7 @@ public class ProfileService {
             throw new UsernameNotFoundException("User identifier (clerkId) is missing");
         }
 
-        Profile profile = repo.findByClerkId(currentClerkId);
+        Profile profile = repo.findByClerkId(clerkId);
         if (profile == null) {
             profile = new Profile();
             profile.setClerkId(clerkId);
