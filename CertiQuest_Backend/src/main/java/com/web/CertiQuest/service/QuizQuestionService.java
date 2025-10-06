@@ -221,8 +221,8 @@ public class QuizQuestionService {
 
                 // Extract options: lines starting with A/B/C/D or similar
                 List<String> opts = Arrays.stream(lines)
-                        .filter(l -> l.matches("^[A-Da-d][\\).].*"))
-                        .map(l -> l.replaceFirst("^[A-Da-d][\\).]\\s*", "").trim())
+                        .filter(l -> l.matches("^[A-Da-d1-4][\\).>].*"))  // accept options starting with A-D, a-d, 1-4 followed by ), ., or >
+                        .map(l -> l.replaceFirst("^[A-Da-d1-4][\\).>]+\\s*", ""))  // remove prefix + whitespace
                         .collect(Collectors.toList());
                 // Ensure 4 options
                 if (opts.size() < 4) {
