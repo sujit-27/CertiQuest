@@ -9,9 +9,15 @@ public class UserPoints {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
+
     private String clerkId;
     private int points;
     private String plan;
+
+    @Version
+    private Integer version; // Optimistic locking
+
+    // Getters and setters
 
     public int getId() {
         return id;
@@ -45,6 +51,14 @@ public class UserPoints {
         this.plan = plan;
     }
 
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
+
     @Override
     public String toString() {
         return "UserPoints{" +
@@ -52,7 +66,7 @@ public class UserPoints {
                 ", clerkId='" + clerkId + '\'' +
                 ", points=" + points +
                 ", plan='" + plan + '\'' +
+                ", version=" + version +
                 '}';
     }
 }
-
