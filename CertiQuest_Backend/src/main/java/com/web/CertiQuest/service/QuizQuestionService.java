@@ -237,7 +237,9 @@ public class QuizQuestionService {
                         .findFirst()
                         .map(l -> {
                             String s = l.substring(l.toLowerCase().indexOf("answer:") + 7).trim();
-                            // Try to match to one of the options if format is "A" or full option text
+                            // Remove leading label such as 'b)', 'a.', '1.' if present
+                            s = s.replaceFirst("^[\\dA-Da-d][\\).>\\]]?\\s*", "");
+                            // Try to match single letter answer to option text
                             if (s.matches("^[A-Da-d]$")) {
                                 int idx = "ABCD".indexOf(s.toUpperCase());
                                 return idx >= 0 && idx < finalOpts.size() ? finalOpts.get(idx) : finalOpts.get(0);
@@ -247,6 +249,7 @@ public class QuizQuestionService {
                         })
                         .orElse(opts.get(0));
                 q.setCorrectAnswer(correct);
+
 
                 extracted.add(q);
             }
