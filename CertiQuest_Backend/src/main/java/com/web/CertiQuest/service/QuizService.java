@@ -260,11 +260,21 @@ public class QuizService {
         if (difficultyChanged || questionCountChanged) {
             quiz.setDifficulty(difficulty);
             quiz.setNoOfQuestions(noOfQuestions);
+
             List<QuizQuestion> newQuestions = quizQuestionService.getOrCreateQuiz(
                     quiz.getCategory(), difficulty, noOfQuestions
             );
-            quiz.getQuestions().clear();
-            quiz.getQuestions().addAll(newQuestions);
+
+            // Mutate existing list properly to keep orphanRemoval happy
+            List<QuizQuestion> currentQuestions = quiz.getQuestions();
+            // Remove questions that are not in the new set
+            currentQuestions.removeIf(q -> !newQuestions.contains(q));
+            // Add new questions that are not already in the list
+            for (QuizQuestion q : newQuestions) {
+                if (!currentQuestions.contains(q)) {
+                    quiz.addQuestion(q); // Use helper method to set bidirectional relation
+                }
+            }
         }
 
         Quiz updatedQuiz = quizDao.save(quiz);
@@ -275,6 +285,7 @@ public class QuizService {
 
         return updatedQuiz;
     }
+
 
     public void deleteQuiz(int id) {
         quizDao.findById(id).ifPresent(quiz -> quizDao.deleteById(id));
