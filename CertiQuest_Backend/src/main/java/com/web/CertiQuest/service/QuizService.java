@@ -265,14 +265,13 @@ public class QuizService {
                     quiz.getCategory(), difficulty, noOfQuestions
             );
 
-            // Mutate existing list properly to keep orphanRemoval happy
-            List<QuizQuestion> currentQuestions = quiz.getQuestions();
-            // Remove questions that are not in the new set
-            currentQuestions.removeIf(q -> !newQuestions.contains(q));
-            // Add new questions that are not already in the list
-            for (QuizQuestion q : newQuestions) {
-                if (!currentQuestions.contains(q)) {
-                    quiz.addQuestion(q); // Use helper method to set bidirectional relation
+            // Remove questions not in newQuestions list
+            quiz.getQuestions().removeIf(oldQ -> !newQuestions.contains(oldQ));
+
+            // Add all new questions not already in the collection
+            for (QuizQuestion newQ : newQuestions) {
+                if (!quiz.getQuestions().contains(newQ)) {
+                    quiz.addQuestion(newQ);
                 }
             }
         }
@@ -285,7 +284,6 @@ public class QuizService {
 
         return updatedQuiz;
     }
-
 
     public void deleteQuiz(int id) {
         quizDao.findById(id).ifPresent(quiz -> quizDao.deleteById(id));
