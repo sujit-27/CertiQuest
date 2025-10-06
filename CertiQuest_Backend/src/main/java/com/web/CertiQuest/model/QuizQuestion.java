@@ -90,4 +90,18 @@ public class QuizQuestion {
     public void setQuiz(Quiz quiz) {
         this.quiz = quiz;
     }
+
+    @Override
+    public String toString() {
+        return "QuizQuestion{" +
+                "id=" + id +
+                ", question='" + question + '\'' +
+                ", category='" + category + '\'' +
+                ", correctAnswer='" + correctAnswer + '\'' +
+                ", difficultyLevel='" + difficultyLevel + '\'' +
+                ", options=" + options +
+                ", quiz=" + quiz +
+                '}';
+    }
+
 }
