@@ -100,7 +100,7 @@ public class EmailService {
         try {
             // Create an email object using the Resend SDK
             CreateEmailOptions params = CreateEmailOptions.builder()
-                    .from("CertiQuest <onboarding@resend.dev>") // Use your verified Resend email
+                    .from("onboarding@resend.dev") // Use your verified Resend email
                     .to(to)
                     .subject(subject)
                     .html(htmlBody)
