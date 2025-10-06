@@ -197,50 +197,41 @@ public class QuizQuestionService {
     // ---------------- Extract questions from text ----------------
     public List<QuizQuestion> extractQuestionsFromText(String pdfText, String category, String difficulty) {
     List<QuizQuestion> extracted = new ArrayList<>();
-
-    // Normalize text: put each option on a new line
-    String normalizedText = pdfText.replaceAll("(?<=\\)|\\d\\.)\\s+", "\n");
-
-    // Split by question number
-    String[] parts = normalizedText.split("(?i)question\\s*\\d+[:.-]");
+    
+    // Split questions using a more flexible pattern
+    String[] parts = pdfText.split("(?i)question\\s*\\d+");
+    
     for (String part : parts) {
-        if (part.trim().isEmpty()) continue;
+        part = part.trim();
+        if (part.isEmpty()) continue;
 
         QuizQuestion q = new QuizQuestion();
         q.setCategory(category);
         q.setDifficultyLevel(difficulty);
 
-        // Try to separate question and options
-        String[] lines = part.trim().split("\n");
+        // Match first line as question text
+        String[] lines = part.split("\\n");
+        String questionLine = lines.length > 0 ? lines[0].trim() : "No Question Found";
+        q.setQuestion(questionLine);
 
-        // First non-empty line is the question
-        String questionText = Arrays.stream(lines)
-                .filter(l -> !l.trim().isEmpty() && !l.toLowerCase().contains("answer:"))
-                .findFirst()
-                .orElse("Sample question");
-        q.setQuestion(questionText.trim());
-
-        // Extract options: lines starting with A/B/C/D or similar
+        // Extract options (look for lines starting with A, B, C, D or 1., 2., etc.)
         List<String> opts = Arrays.stream(lines)
-                .filter(l -> l.matches("^[A-Da-d]\\).*") || l.matches("^[A-Da-d]\\..*"))
-                .map(l -> l.replaceFirst("^[A-Da-d]\\).*", "")
-                           .replaceFirst("^[A-Da-d]\\..*", "")
-                           .trim())
+                .filter(l -> l.matches("^[A-Da-d1-4]\\.?\\s?.+"))
+                .map(l -> l.replaceFirst("^[A-Da-d1-4]\\.?\\s*", "").trim())
                 .collect(Collectors.toList());
 
-        // Ensure 4 options
-        if (opts.size() < 4) {
+        // Default options if not enough found
+        if (opts.size() < 2) {
             opts = List.of("Option A", "Option B", "Option C", "Option D");
         }
         q.setOptions(opts);
 
-        // Extract correct answer
+        // Try to find the answer
         String correct = Arrays.stream(lines)
-                .flatMap(l -> Arrays.stream(l.split("\\)"))) // split if answer runs with options
                 .filter(l -> l.toLowerCase().contains("answer:"))
                 .findFirst()
-                .map(l -> l.substring(l.toLowerCase().indexOf("answer:") + 7).trim())
-                .orElse("Option A");
+                .map(l -> l.substring(l.indexOf(":") + 1).trim())
+                .orElse(opts.get(0)); // Default to first option if not found
         q.setCorrectAnswer(correct);
 
         extracted.add(q);
