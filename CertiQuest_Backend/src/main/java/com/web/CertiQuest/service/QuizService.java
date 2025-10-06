@@ -1,5 +1,7 @@
 package com.web.CertiQuest.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.web.CertiQuest.dao.QuizDao;
 import com.web.CertiQuest.dao.QuizQuestionDao;
 import com.web.CertiQuest.dao.QuizResultDao;
@@ -170,6 +172,7 @@ public class QuizService {
         Quiz savedQuiz = quizDao.save(quiz);
 
         profileService.incrementQuizCreatedCount(creator);
+        emailService.sendQuizCreatedMailToAllExceptCreator(savedQuiz, createdBy);
 
         return savedQuiz;
     }
@@ -239,17 +242,39 @@ public class QuizService {
     }
 
     public int calculateScore(QuizSubmissionDto submission) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.enable(SerializationFeature.INDENT_OUTPUT);
+            String json = mapper.writeValueAsString(submission);
+            System.out.println("Quiz Submission: \n" + json);
+        } catch (Exception e) {
+            System.out.println("Error serializing submission: " + e.getMessage());
+        }
+
         AtomicInteger score = new AtomicInteger();
+
         for (QuizSubmissionDto.UserAnswer ans : submission.getAnswers()) {
+            System.out.println("Answer: QuestionId=" + ans.getQuestionId() + ", SelectedAnswer=" + ans.getSelectedAnswer());
+
             quizQuestionDao.findById(ans.getQuestionId())
                     .ifPresent(question -> {
+                        System.out.println("Question: " + question.getQuestion());
+                        System.out.println("Correct answer: " + question.getCorrectAnswer());
+
                         if (question.getCorrectAnswer().equalsIgnoreCase(ans.getSelectedAnswer())) {
+                            System.out.println("Answer correct.");
                             score.getAndIncrement();
+                        } else {
+                            System.out.println("Answer incorrect.");
                         }
                     });
         }
+
+        System.out.println("Final score: " + score.get());
+
         return score.get();
     }
+
 
     @Transactional
     public Quiz updateQuiz(int id, String title, String difficulty, int noOfQuestions) {
@@ -326,6 +351,7 @@ public class QuizService {
             Quiz updatedQuiz = quizDao.save(quiz);
             Optional<Quiz> createdQuiz = quizDao.findById(quizId);
             String creator = createdQuiz.map(Quiz::getCreatedBy).orElse(null);
+            emailService.sendParticipantJoinedMailToCreator(updatedQuiz, userId, creator);
             return updatedQuiz;
         }
         return quiz;
