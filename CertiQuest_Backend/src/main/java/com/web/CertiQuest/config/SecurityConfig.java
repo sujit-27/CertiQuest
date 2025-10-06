@@ -56,9 +56,10 @@ public class SecurityConfig {
 
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "https://certi-quest-ten.vercel.app",
-                "certi-quest-git-main-sujti-kumar-shaws-projects.vercel.app",
-                "certi-quest-a1h6knx8s-sujti-kumar-shaws-projects.vercel.app"
+                "https://certi-quest-gamma.vercel.app",
+                "https://certi-quest-sujti-kumar-shaws-projects.vercel.app",
+                "https://certi-quest-git-main-sujti-kumar-shaws-projects.vercel.app",
+                "https://certi-quest-a1h6knx8s-sujti-kumar-shaws-projects.vercel.app"
         ));
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
