@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -32,22 +31,21 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        // ===== Allow OPTIONS for preflight requests =====
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        // ===== Public endpoints =====
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 "/api/v1.0/webhooks/**",
                                 "/api/certificates/download/**",
                                 "/api/leaderboard/**"
                         ).permitAll()
-
-                        // ===== Everything else requires authentication =====
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(clerkJwtAuthFilter,
-                        org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(clerkJwtAuthFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt
+                                .jwkSetUri("https://dynamic-halibut-48.clerk.accounts.dev/.well-known/jwks.json")
+                        )
+                );
 
         return http.build();
     }
@@ -55,20 +53,23 @@ public class SecurityConfig {
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
+
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "http://localhost:8080",
                 "https://certi-quest-ten.vercel.app",
                 "certi-quest-git-main-sujti-kumar-shaws-projects.vercel.app",
-                "certi-quest-a1h6knx8s-sujti-kumar-shaws-projects.vercel.app",
-                "https://certiquest.up.railway.app"
+                "certi-quest-a1h6knx8s-sujti-kumar-shaws-projects.vercel.app"
         ));
+
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
+
         return new CorsFilter(source);
     }
+
 }
+
