@@ -33,67 +33,9 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
-                                    FilterChain filterChain)
-            throws ServletException, IOException {
+                                    FilterChain filterChain) throws ServletException, IOException {
 
-        String uri = request.getRequestURI();
-
-        // ✅ Allow public endpoints freely (no JWT check)
-        if (uri.contains("/webhooks")
-                || uri.contains("/leaderboard")
-                || uri.contains("/download")
-                || uri.equals("/api/quiz/create")
-                || uri.equals("/users/points")) {
-
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        String authHeader = request.getHeader("Authorization");
-
-        // ✅ If no Authorization header, skip (public or anonymous)
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        try {
-            String token = authHeader.substring(7);
-            String[] chunks = token.split("\\.");
-            if (chunks.length < 3) {
-                // 🔹 Don’t block — just skip auth
-                filterChain.doFilter(request, response);
-                return;
-            }
-
-            String headerJson = new String(Base64.getUrlDecoder().decode(chunks[0]));
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode headerNode = mapper.readTree(headerJson);
-            String kid = headerNode.get("kid").asText();
-            PublicKey publicKey = jwksProvider.getPublicKey(kid);
-
-            Claims claims = Jwts.parser()
-                    .verifyWith(publicKey)
-                    .clockSkewSeconds(60)
-                    .requireIssuer(clerkIssuer)
-                    .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
-
-            String userId = claims.getSubject();
-
-            UsernamePasswordAuthenticationToken authToken =
-                    new UsernamePasswordAuthenticationToken(
-                            userId, null, Collections.singleton(new SimpleGrantedAuthority("USER")));
-
-            SecurityContextHolder.getContext().setAuthentication(authToken);
-
-        } catch (Exception e) {
-            // 🔹 Log error but don’t block the request
-            System.out.println("⚠️ JWT verification skipped: " + e.getMessage());
-        }
-
-        // Continue filter chain
+        // Simply allow all requests through without JWT validation
         filterChain.doFilter(request, response);
     }
 }
