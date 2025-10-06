@@ -1,5 +1,6 @@
 package com.web.CertiQuest.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -31,6 +32,11 @@ public class QuizQuestion {
     private String correctAnswer;
 
     private String difficultyLevel;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "quiz_id")
+    @JsonBackReference
+    private Quiz quiz;  // <-- Added this to link to Quiz entity properly
 
     public int getId() {
         return id;
@@ -80,15 +86,11 @@ public class QuizQuestion {
         this.difficultyLevel = difficultyLevel;
     }
 
-    @Override
-    public String toString() {
-        return "QuizQuestion{" +
-                "id=" + id +
-                ", question='" + question + '\'' +
-                ", category='" + category + '\'' +
-                ", options=" + options +
-                ", correctAnswer='" + correctAnswer + '\'' +
-                ", difficultyLevel='" + difficultyLevel + '\'' +
-                '}';
+    public Quiz getQuiz() {
+        return quiz;
+    }
+
+    public void setQuiz(Quiz quiz) {
+        this.quiz = quiz;
     }
 }
