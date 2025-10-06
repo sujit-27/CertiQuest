@@ -34,9 +34,10 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 "/api/v1.0/webhooks/**",
-                                "/api/certificates/download/**",
+                                "/api/certificates/**",
                                 "/api/leaderboard/**",
-                                "/api/quiz/create"
+                                "/api/quiz/create",
+                                "/users/points"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
