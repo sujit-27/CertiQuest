@@ -40,9 +40,7 @@ public class ClerkJwtAuthFilter extends OncePerRequestFilter {
         // ===== Public endpoints that don't need authentication =====
         if (uri.startsWith("/api/v1.0/webhooks") ||   // Clerk webhooks
                 uri.startsWith("/api/leaderboard") ||
-                uri.startsWith("/api/certificates") ||
-                uri.startsWith("/api/transactions") ||
-                uri.startsWith("/users/points") ||
+                uri.startsWith("/api/certificates/download") ||
                 request.getMethod().equalsIgnoreCase("OPTIONS")) { // Preflight
             filterChain.doFilter(request, response);
             return;
