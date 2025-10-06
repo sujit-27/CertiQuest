@@ -100,8 +100,8 @@ public class EmailService {
         try {
             // Create an email object using the Resend SDK
             CreateEmailOptions params = CreateEmailOptions.builder()
-                    .from("noreply@certiquest.com")  // Use your verified Resend email
-                    .to(to)
+                    .from("onboarding@resend.dev")  // Use your verified Resend email
+                    .to("sujitshaw029@gmail.com")
                     .subject(subject)
                     .html(htmlBody)
                     .build();
