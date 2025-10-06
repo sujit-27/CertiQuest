@@ -326,7 +326,6 @@ public class QuizService {
             Quiz updatedQuiz = quizDao.save(quiz);
             Optional<Quiz> createdQuiz = quizDao.findById(quizId);
             String creator = createdQuiz.map(Quiz::getCreatedBy).orElse(null);
-            emailService.sendParticipantJoinedMailToCreator(updatedQuiz, userId, creator);
             return updatedQuiz;
         }
         return quiz;
