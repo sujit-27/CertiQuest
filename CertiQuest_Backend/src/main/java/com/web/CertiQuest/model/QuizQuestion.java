@@ -91,17 +91,14 @@ public class QuizQuestion {
         this.quiz = quiz;
     }
 
-    @Override
+        @Override
     public String toString() {
         return "QuizQuestion{" +
                 "id=" + id +
-                ", question='" + question + '\'' +
                 ", category='" + category + '\'' +
                 ", correctAnswer='" + correctAnswer + '\'' +
                 ", difficultyLevel='" + difficultyLevel + '\'' +
                 ", options=" + options +
-                ", quiz=" + quiz +
                 '}';
     }
-
 }
