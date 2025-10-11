@@ -47,8 +47,11 @@ public class SecurityConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
+                "http://localhost:5173",
                 "https://certi-quest-gamma.vercel.app",
-                "https://certiquest.onrender.com"
+                "https://certi-quest-sujti-kumar-shaws-projects.vercel.app",
+                "https://certi-quest-git-main-sujti-kumar-shaws-projects.vercel.app",
+                "https://certi-quest-a1h6knx8s-sujti-kumar-shaws-projects.vercel.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
