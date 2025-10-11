@@ -1,5 +1,6 @@
 package com.web.CertiQuest.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -18,19 +19,21 @@ public class QuizQuestion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    @Column(nullable = false, length = 1000)
+    @Column(length = 1000)
     private String question;
-
     private String category;
+    private String correctAnswer;
+    private String difficultyLevel;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "question_options", joinColumns = @JoinColumn(name = "question_id"))
     @Column(name = "option_text")
     private List<String> options;
 
-    private String correctAnswer;
-
-    private String difficultyLevel;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "quiz_id")
+    @JsonIgnore
+    private Quiz quiz;
 
     public int getId() {
         return id;
@@ -56,14 +59,6 @@ public class QuizQuestion {
         this.category = category;
     }
 
-    public List<String> getOptions() {
-        return options;
-    }
-
-    public void setOptions(List<String> options) {
-        this.options = options;
-    }
-
     public String getCorrectAnswer() {
         return correctAnswer;
     }
@@ -80,15 +75,30 @@ public class QuizQuestion {
         this.difficultyLevel = difficultyLevel;
     }
 
+    public List<String> getOptions() {
+        return options;
+    }
+
+    public void setOptions(List<String> options) {
+        this.options = options;
+    }
+
+    public Quiz getQuiz() {
+        return quiz;
+    }
+
+    public void setQuiz(Quiz quiz) {
+        this.quiz = quiz;
+    }
+
     @Override
     public String toString() {
         return "QuizQuestion{" +
                 "id=" + id +
-                ", question='" + question + '\'' +
                 ", category='" + category + '\'' +
-                ", options=" + options +
                 ", correctAnswer='" + correctAnswer + '\'' +
                 ", difficultyLevel='" + difficultyLevel + '\'' +
+                ", options=" + options +
                 '}';
     }
 }
