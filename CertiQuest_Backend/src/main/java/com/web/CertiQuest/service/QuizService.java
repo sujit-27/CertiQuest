@@ -49,8 +49,8 @@ public class QuizService {
     /**
      * Create a new quiz and deduct points
      */
+    @Transactional
     public Quiz createQuiz(String title, String category, String difficulty, int noOfQuestions, String createdBy) {
-        // Deduct 1 point atomically
         userPointsService.consumePoints(1)
                 .orElseThrow(() -> new RuntimeException("Insufficient points to create quiz"));
 
@@ -61,8 +61,6 @@ public class QuizService {
         Profile creator = profileService.getCurrentProfile();
         validateAdminPlanForQuizCreation(creator, difficulty, noOfQuestions);
 
-        List<QuizQuestion> questions = quizQuestionService.getOrCreateQuiz(category, difficulty, noOfQuestions);
-
         Quiz quiz = new Quiz();
         quiz.setTitle(title);
         quiz.setCategory(category);
@@ -70,27 +68,31 @@ public class QuizService {
         quiz.setNoOfQuestions(noOfQuestions);
         quiz.setCreatedAt(Instant.now());
         quiz.setCreatedBy(createdBy);
-        quiz.setQuestions(questions);
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
 
+        // Get questions (may be existing pool items or newly generated)
+        List<QuizQuestion> questions = quizQuestionService.getOrCreateQuiz(category, difficulty, noOfQuestions);
+
+        for (QuizQuestion q : questions) {
+            quiz.addQuestion(q);
+        }
+
         Quiz savedQuiz = quizDao.save(quiz);
+        System.out.println(savedQuiz);
 
         profileService.incrementQuizCreatedCount(creator);
-
         return savedQuiz;
     }
 
     /**
      * Create a quiz from a PDF and deduct points
      */
+    @Transactional
     public Quiz createQuizFromPdf(MultipartFile pdfFile, String title,
                                   String category, String difficulty, String createdBy) {
-
-        // Deduct 1 point atomically
         userPointsService.consumePoints(1)
                 .orElseThrow(() -> new RuntimeException("Insufficient points to create quiz"));
 
-        // ===== Validate file =====
         if (pdfFile == null || pdfFile.isEmpty()) {
             throw new IllegalArgumentException("PDF file is required.");
         }
@@ -105,7 +107,6 @@ public class QuizService {
             PDFTextStripper stripper = new PDFTextStripper();
             pdfText = stripper.getText(document);
 
-            // Fallback to OCR if no text
             if (pdfText.trim().isEmpty()) {
                 PDFRenderer pdfRenderer = new PDFRenderer(document);
                 StringBuilder ocrText = new StringBuilder();
@@ -120,7 +121,6 @@ public class QuizService {
                     ocrText.append(result).append("\n");
                 }
                 pdfText = ocrText.toString();
-
                 if (pdfText.trim().isEmpty()) {
                     throw new RuntimeException("Cannot extract questions: PDF contains no text even after OCR.");
                 }
@@ -129,7 +129,7 @@ public class QuizService {
             throw new RuntimeException("Failed to read PDF file", e);
         }
 
-        // ===== Extract quiz questions from PDF text =====
+        // Use improved extraction
         List<QuizQuestion> questions = quizQuestionService.extractQuestionsFromText(
                 pdfText,
                 category != null ? category : "General",
@@ -149,9 +149,13 @@ public class QuizService {
         quiz.setDifficulty(difficulty != null ? difficulty : "Medium");
         quiz.setCreatedBy(createdBy);
         quiz.setNoOfQuestions(questions.size());
-        quiz.setQuestions(questions);
         quiz.setCreatedAt(Instant.now());
         quiz.setExpiryDate(LocalDate.now().plusDays(7));
+
+        // Use addQuestion to set both sides and persist via cascade
+        for (QuizQuestion q : questions) {
+            quiz.addQuestion(q);
+        }
 
         Quiz savedQuiz = quizDao.save(quiz);
 
