@@ -5,7 +5,6 @@ import com.web.CertiQuest.dto.QuizSubmissionDto;
 import com.web.CertiQuest.model.Quiz;
 import com.web.CertiQuest.model.QuizEvent;
 import com.web.CertiQuest.model.QuizResult;
-import com.web.CertiQuest.service.AdminQuizEventProducer;
 import com.web.CertiQuest.service.QuizService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -23,8 +22,6 @@ public class QuizController {
     @Autowired
     private QuizService quizService;
 
-    @Autowired
-    private AdminQuizEventProducer adminQuizEventProducer;
 
     // ===== Create Quiz =====
     @PostMapping("/create")
@@ -37,21 +34,6 @@ public class QuizController {
                     request.getNoOfQuestions(),
                     request.getCreatedBy()
             );
-
-            try {
-                adminQuizEventProducer.sendQuizEvent(
-                        new QuizEvent(
-                                "CREATED",
-                                quiz.getId(),
-                                quiz.getTitle(),
-                                quiz.getDifficulty(),
-                                quiz.getNoOfQuestions()
-                        )
-                );
-            } catch (Exception e) {
-                System.err.println("Kafka event sending failed: " + e.getMessage());
-            }
-
 
             return ResponseEntity.ok(quiz);
         } catch (RuntimeException e) {
@@ -73,19 +55,6 @@ public class QuizController {
         try {
             Quiz savedQuiz = quizService.createQuizFromPdf(pdfFile, title, category, difficulty, createdBy);
 
-            try {
-                adminQuizEventProducer.sendQuizEvent(
-                        new QuizEvent(
-                                "CREATED",
-                                savedQuiz.getId(),
-                                savedQuiz.getTitle(),
-                                savedQuiz.getDifficulty(),
-                                savedQuiz.getNoOfQuestions()
-                        )
-                );
-            } catch (Exception e) {
-                System.err.println("Kafka event sending failed: " + e.getMessage());
-            }
             return ResponseEntity.ok(savedQuiz);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -101,21 +70,6 @@ public class QuizController {
             @RequestParam int noOfQuestions
     ) {
         Quiz updatedQuiz = quizService.updateQuiz(id, title, difficulty, noOfQuestions);
-
-        try {
-            adminQuizEventProducer.sendQuizEvent(
-                    new QuizEvent(
-                            "UPDATED",
-                            updatedQuiz.getId(),
-                            updatedQuiz.getTitle(),
-                            updatedQuiz.getDifficulty(),
-                            updatedQuiz.getNoOfQuestions()
-                    )
-            );
-        } catch (Exception e) {
-            // Log error, but do not fail quiz update
-            System.err.println("Kafka event sending failed: " + e.getMessage());
-        }
 
         return ResponseEntity.ok(updatedQuiz);
     }
