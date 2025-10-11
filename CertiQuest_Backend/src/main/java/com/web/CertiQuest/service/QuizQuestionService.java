@@ -10,13 +10,18 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class QuizQuestionService {
+
+    private static final Logger logger = LoggerFactory.getLogger(QuizQuestionService.class);
 
     @Autowired
     private QuizQuestionDao quizQuestionDao;
@@ -31,6 +36,7 @@ public class QuizQuestionService {
         this.objectMapper = objectMapper;
     }
 
+    // ---------------- Prompt builder ----------------
     private String buildPrompt(String category, String difficulty, int noOfQuestions) {
         return String.format("""
                 Generate %d multiple-choice quiz questions in the category '%s' with difficulty '%s'.
@@ -38,15 +44,16 @@ public class QuizQuestionService {
                 Format the response strictly as a valid JSON array like this:
                 [
                   {
-                    "question": "Which planet is known as the Red Planet?",
-                    "options": ["Earth", "Mars", "Jupiter", "Saturn"],
-                    "correctAnswer": "Mars"
+                    "question": "Example question?",
+                    "options": ["A", "B", "C", "D"],
+                    "correctAnswer": "A"
                   }
                 ]
-                Do not include any text outside the JSON array. Do not include explanations.
+                Do not include explanations or any text outside the JSON array.
                 """, noOfQuestions, category, difficulty);
     }
 
+    // ---------------- Call Cohere API ----------------
     private String callCohereAPI(String prompt) {
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -54,14 +61,13 @@ public class QuizQuestionService {
             headers.set("Authorization", "Bearer " + cohereApiKey);
 
             Map<String, Object> requestBody = Map.of(
-                    "model", "command-nightly",   // or "command-r" / "command-r-plus"
+                    "model", "command-nightly",
                     "message", prompt,
-                    "max_tokens", 1500,
+                    "max_tokens", 3000,
                     "temperature", 0.7
             );
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-
             Map<String, Object> response = restTemplate.postForObject(
                     "https://api.cohere.ai/v1/chat",
                     entity,
@@ -69,119 +75,186 @@ public class QuizQuestionService {
             );
 
             if (response != null && response.get("text") != null) {
-                String text = response.get("text").toString().trim();
-                return cleanJsonResponse(text);
+                String rawText = response.get("text").toString().trim();
+                String cleaned = cleanJsonResponse(rawText);
+                logger.debug("Raw Cohere response: {}", rawText);
+                logger.debug("Cleaned JSON response: {}", cleaned);
+                return cleaned;
             }
+
             throw new RuntimeException("No text in Cohere API response: " + response);
+
         } catch (Exception e) {
-            throw new RuntimeException("Error calling Cohere API: " + e.getMessage(), e);
+            logger.error("Error calling Cohere API: {}", e.getMessage());
+            throw new RuntimeException("Error calling Cohere API", e);
         }
     }
 
+    // ---------------- Clean response ----------------
     private String cleanJsonResponse(String text) {
         if (text == null) return null;
         text = text.trim();
-        if (text.startsWith("```json")) {
-            text = text.substring("```json".length()).trim();
-        } else if (text.startsWith("```")) {
-            text = text.substring(3).trim();
+
+        if (text.startsWith("```json")) text = text.substring(7).trim();
+        else if (text.startsWith("```")) text = text.substring(3).trim();
+        if (text.endsWith("```")) text = text.substring(0, text.length() - 3).trim();
+
+        if (text.startsWith("\"") && text.endsWith("\"")) {
+            text = text.substring(1, text.length() - 1)
+                    .replace("\\\"", "\"")
+                    .replace("\\n", "")
+                    .replace("\\r", "");
         }
-        if (text.endsWith("```")) {
-            text = text.substring(0, text.length() - 3).trim();
-        }
+
         return text;
     }
 
-    public List<QuizQuestion> generateQuestions(String category, String difficulty, int noOfQuestions) {
-        String prompt = buildPrompt(category, difficulty, noOfQuestions);
-        String response = callCohereAPI(prompt);
+    // ---------------- Generate questions ----------------
+    public List<QuizQuestion> generateQuestions(String category, String difficulty, int count) {
+        List<QuizQuestion> generated = new ArrayList<>();
 
         try {
-            List<QuizQuestion> questions = objectMapper.readValue(response, new TypeReference<>() {
-            });
-            for (QuizQuestion q : questions) {
+            // Generate prompt
+            String prompt = buildPrompt(category, difficulty, count);
+            String jsonResponse = callCohereAPI(prompt);
+
+            // Parse JSON into QuizQuestion objects
+            List<QuizQuestion> aiQuestions = parseQuestions(jsonResponse, category, difficulty);
+            generated.addAll(aiQuestions);
+
+        } catch (Exception e) {
+            logger.error("AI generation failed: {}, using fallback.", e.getMessage());
+
+            // Fallback: generate dummy questions
+            for (int i = 1; i <= count; i++) {
+                QuizQuestion q = new QuizQuestion();
                 q.setCategory(category);
                 q.setDifficultyLevel(difficulty);
+                q.setQuestion("Sample question " + i + " for " + category + " (" + difficulty + ")");
+                q.setOptions(List.of("Option A", "Option B", "Option C", "Option D"));
+                q.setCorrectAnswer("Option A");
+                generated.add(q);
             }
-            quizQuestionDao.saveAll(questions);
-            return questions;
-        } catch (Exception e) {
-            throw new RuntimeException("Error parsing Cohere response: " + response, e);
         }
+
+        return generated;
     }
 
+    // ---------------- Get or create quiz ----------------
+    @Transactional(readOnly = true)
     public List<QuizQuestion> getOrCreateQuiz(String category, String difficulty, int noOfQuestions) {
         List<QuizQuestion> existing = quizQuestionDao.findByCategoryAndDifficultyLevel(category, difficulty);
 
-        if (!existing.isEmpty() && existing.size() >= noOfQuestions) {
-            return existing.subList(0, noOfQuestions);
+        if (existing.size() >= noOfQuestions) {
+            Collections.shuffle(existing);
+            return existing.stream()
+                    .limit(noOfQuestions)
+                    .collect(Collectors.toList());
         }
 
-        String prompt = buildPrompt(category, difficulty, noOfQuestions);
-        String response = callCohereAPI(prompt);
+        int needed = noOfQuestions - existing.size();
+        List<QuizQuestion> generated = generateQuestions(category, difficulty, needed);
 
-        try {
-            List<QuizQuestion> newQuestions = objectMapper.readValue(response, new TypeReference<>() {
-            });
-            for (QuizQuestion q : newQuestions) {
-                q.setCategory(category);
-                q.setDifficultyLevel(difficulty);
-            }
-            quizQuestionDao.saveAll(newQuestions);
-            return newQuestions;
-        } catch (Exception e) {
-            throw new RuntimeException("Error parsing Cohere response: " + response, e);
-        }
+        List<QuizQuestion> result = new ArrayList<>(existing);
+        result.addAll(generated);
+        return result;
     }
 
-    public List<QuizQuestion> extractQuestionsFromText(String text, String category, String difficulty) {
-        // Validate input
-        if (text == null || text.trim().isEmpty()) {
-            throw new IllegalArgumentException("Cannot extract questions: PDF contains no text.");
-        }
-
-        // Build prompt for Cohere
-        String prompt = String.format("""
-            Extract quiz questions from the following text in JSON format.
-            Include question, 4 options, and correctAnswer.
-            Respond strictly as a JSON array like:
-            [
-              {
-                "question": "Example question?",
-                "options": ["A", "B", "C", "D"],
-                "correctAnswer": "B"
-              }
-            ]
-            Text:
-            %s
-            """, text);
-
+    // ---------------- Parse questions ----------------
+    private List<QuizQuestion> parseQuestions(String json, String category, String difficulty) {
         try {
-            // Call Cohere API (implement your callCohereAPI method)
-            String response = callCohereAPI(prompt);
+            List<Map<String, Object>> questionMaps = objectMapper.readValue(json, new TypeReference<>() {});
+            List<QuizQuestion> questions = new ArrayList<>();
 
-            // Parse response
-            List<QuizQuestion> questions = objectMapper.readValue(response, new TypeReference<>() {
-            });
+            for (Map<String, Object> map : questionMaps) {
+                QuizQuestion q = new QuizQuestion();
+                q.setCategory(category);
+                q.setDifficultyLevel(difficulty);
+                q.setQuestion((String) map.get("question"));
 
-            // Throw if Cohere returned empty array
-            if (questions == null || questions.isEmpty()) {
-                throw new RuntimeException("Cohere returned no questions from PDF text.");
+                // Handle options (ensure List<String>)
+                Object opts = map.get("options");
+                if (opts instanceof List<?>) {
+                    q.setOptions(((List<?>) opts).stream()
+                            .map(Object::toString)
+                            .collect(Collectors.toList()));
+                } else {
+                    q.setOptions(List.of("Option A", "Option B", "Option C", "Option D"));
+                }
+
+                q.setCorrectAnswer((String) map.getOrDefault("correctAnswer", "Option A"));
+                questions.add(q);
             }
-
-            // Set category & difficulty
-            for (QuizQuestion q : questions) {
-                q.setCategory(category != null ? category : "General");
-                q.setDifficultyLevel(difficulty != null ? difficulty : "Medium");
-            }
-
-            // Save all extracted questions
-            quizQuestionDao.saveAll(questions);
 
             return questions;
 
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse Cohere response: " + e.getMessage(), e);
+            logger.error("Error parsing Cohere JSON response: {}", e.getMessage());
+            throw new RuntimeException("Error parsing Cohere response: " + json, e);
         }
     }
+
+    // ---------------- Extract questions from text ----------------
+    public List<QuizQuestion> extractQuestionsFromText(String pdfText, String category, String difficulty) {
+        List<QuizQuestion> extracted = new ArrayList<>();
+        // Split by pages using form-feed or multiple newlines (covers most PDF text extractors)
+        String[] pages = pdfText.split("\\f|\\r?\\n\\s*\\r?\\n+");
+
+        for (String page : pages) {
+            // Split questions per page using patterns like "1." or "Question 1"
+            String[] parts = page.split("(?i)(?:^|\\s)question\\s*\\d+[:.-]|(?:^|\\s)\\d+\\.\\s+");
+            for (String part : parts) {
+                if (part.trim().isEmpty()) continue;
+
+                QuizQuestion q = new QuizQuestion();
+                q.setCategory(category);
+                q.setDifficultyLevel(difficulty);
+
+                // Try to separate question and options
+                String[] lines = part.trim().split("\\r?\\n");
+                // Find the first non-option, non-answer line as the question
+                String questionText = Arrays.stream(lines)
+                        .filter(l -> !l.trim().isEmpty() && !l.matches("^[A-Da-d][\\).].*") && !l.toLowerCase().contains("answer:"))
+                        .findFirst()
+                        .orElse("Sample question");
+                q.setQuestion(questionText.trim());
+
+                // Extract options: lines starting with A/B/C/D or similar
+                List<String> opts = Arrays.stream(lines)
+                        .filter(l -> l.matches("^[A-Da-d1-4][\\).>].*"))  // accept options starting with A-D, a-d, 1-4 followed by ), ., or >
+                        .map(l -> l.replaceFirst("^[A-Da-d1-4][\\).>]+\\s*", ""))  // remove prefix + whitespace
+                        .collect(Collectors.toList());
+                // Ensure 4 options
+                if (opts.size() < 4) {
+                    opts = List.of("Option A", "Option B", "Option C", "Option D");
+                }
+                q.setOptions(opts);
+
+                // Extract correct answer
+                List<String> finalOpts = opts;
+                String correct = Arrays.stream(lines)
+                        .filter(l -> l.toLowerCase().contains("answer:"))
+                        .findFirst()
+                        .map(l -> {
+                            String s = l.substring(l.toLowerCase().indexOf("answer:") + 7).trim();
+                            // Remove leading label such as 'b)', 'a.', '1.' if present
+                            s = s.replaceFirst("^[\\dA-Da-d][\\).>\\]]?\\s*", "");
+                            // Try to match single letter answer to option text
+                            if (s.matches("^[A-Da-d]$")) {
+                                int idx = "ABCD".indexOf(s.toUpperCase());
+                                return idx >= 0 && idx < finalOpts.size() ? finalOpts.get(idx) : finalOpts.get(0);
+                            } else {
+                                return s;
+                            }
+                        })
+                        .orElse(opts.get(0));
+                q.setCorrectAnswer(correct);
+
+                extracted.add(q);
+            }
+        }
+
+        return extracted;
+    }
+
 }
