@@ -15,8 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
-import org.springframework.transaction.annotation.Transactional;
-
 
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -51,7 +49,6 @@ public class QuizService {
     /**
      * Create a new quiz and deduct points
      */
-    @Transactional
     public Quiz createQuiz(String title, String category, String difficulty, int noOfQuestions, String createdBy) {
         userPointsService.consumePoints(1)
                 .orElseThrow(() -> new RuntimeException("Insufficient points to create quiz"));
@@ -89,7 +86,6 @@ public class QuizService {
     /**
      * Create a quiz from a PDF and deduct points
      */
-    @Transactional
     public Quiz createQuizFromPdf(MultipartFile pdfFile, String title,
                                   String category, String difficulty, String createdBy) {
         userPointsService.consumePoints(1)
