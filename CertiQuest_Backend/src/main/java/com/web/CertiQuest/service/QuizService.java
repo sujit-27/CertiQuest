@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
-
+import org.springframework.transaction.annotation.Transactional;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.InputStream;
