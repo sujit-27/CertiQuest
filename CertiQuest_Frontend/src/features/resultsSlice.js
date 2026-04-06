@@ -8,7 +8,10 @@ export const fetchUserResults = createAsyncThunk(
     try {
       if (!isSignedIn) return rejectWithValue("Not signed in");
       const token = await getToken();
-
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const response = await axios.get(`https://certiquest-n9al.onrender.com/api/results/${userId}`,
         {
           headers: {
