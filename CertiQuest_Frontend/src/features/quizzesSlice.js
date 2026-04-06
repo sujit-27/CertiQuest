@@ -141,7 +141,7 @@ export const deleteQuiz = createAsyncThunk(
   async ({ id, getToken, isSignedIn }, { rejectWithValue }) => {
     try {
       if (!isSignedIn) return rejectWithValue("Not signed in");
-      const token = await getToken();'
+      const token = await getToken();
       if (!token) {
       console.log("Token not ready yet");
       return;
