@@ -9,6 +9,10 @@ export const fetchGlobalLeaderboard = createAsyncThunk(
     try {
       if (!isSignedIn) return rejectWithValue("User not signed in");
       const token = await getToken();
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const response = await axios.get(
         "https://certiquest-n9al.onrender.com/api/leaderboard/global",
         {
@@ -29,6 +33,10 @@ export const fetchQuizLeaderboard = createAsyncThunk(
     try {
       if (!isSignedIn) return rejectWithValue("User not signed in");
       const token = await getToken();
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const response = await axios.get(
         `https://certiquest-n9al.onrender.com/api/leaderboard/quiz/${quizId}`,
         {
