@@ -7,6 +7,10 @@ export const fetchAllQuizzes = createAsyncThunk(
     try {
       if (!isSignedIn) return rejectWithValue('Not signed in');
       const token = await getToken();
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const response = await axios.get('https://certiquest-n9al.onrender.com/api/quiz', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -37,6 +41,10 @@ export const createQuizFromPdf = createAsyncThunk(
   async ({ formData, getToken }, { rejectWithValue }) => {
     try {
       const token = await getToken();
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const response = await axios.post(
         "https://certiquest-n9al.onrender.com/api/quiz/create-quiz-pdf",
         formData,
@@ -82,7 +90,10 @@ export const joinQuiz = createAsyncThunk(
     try {
       if (!isSignedIn) return rejectWithValue("Not signed in");
       const token = await getToken();
-
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const response = await axios.post(
         `https://certiquest-n9al.onrender.com/api/quiz/${quizId}/join`,
         { userId },
@@ -102,7 +113,10 @@ export const updateQuiz = createAsyncThunk(
     try {
       // ✅ Get token if required (Clerk/Auth integration)
       const token = await getToken();
-
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const response = await axios.put(
         `https://certiquest-n9al.onrender.com/api/quiz/update`,
         null,
@@ -127,7 +141,11 @@ export const deleteQuiz = createAsyncThunk(
   async ({ id, getToken, isSignedIn }, { rejectWithValue }) => {
     try {
       if (!isSignedIn) return rejectWithValue("Not signed in");
-      const token = await getToken();
+      const token = await getToken();'
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const response = await axios.delete(
         `https://certiquest-n9al.onrender.com/api/quiz/delete?id=${id}`,
         {
