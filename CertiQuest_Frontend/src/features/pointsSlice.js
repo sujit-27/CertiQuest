@@ -8,6 +8,10 @@ export const fetchUserPoints = createAsyncThunk(
     if (!isSignedIn) return rejectWithValue('Not signed in');
     try {
       const token = await getToken();
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const response = await axios.get('https://certiquest-n9al.onrender.com/users/points', {
         headers: { Authorization: `Bearer ${token}` },
       });
