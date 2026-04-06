@@ -11,8 +11,10 @@ export const generateCertificate = createAsyncThunk(
     try {
       if (!isSignedIn) return rejectWithValue("Not signed in");
       const token = await getToken();
-
-      console.log(userId, userName, quizTitle, score, totalQuestions, difficulty)
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const response = await axios.post(
         "https://certiquest-n9al.onrender.com/api/certificates/generate",
         null,
@@ -35,7 +37,10 @@ export const fetchCertificates = createAsyncThunk(
     try {
       if (!isSignedIn) return rejectWithValue("Not signed in");
       const token = await getToken();
-
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const response = await axios.get("https://certiquest-n9al.onrender.com/api/certificates", {
         headers: { Authorization: `Bearer ${token}` },
       });
