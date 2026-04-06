@@ -8,7 +8,10 @@ export const fetchUserTransactions = createAsyncThunk(
     if (!isSignedIn) return rejectWithValue('Not signed in');
     try {
       const token = await getToken();
-      console.log("TOKEN:", token);
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const response = await axios.get('https://certiquest-n9al.onrender.com/api/transactions', {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true,
