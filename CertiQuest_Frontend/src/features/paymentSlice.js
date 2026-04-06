@@ -42,6 +42,10 @@ export const initiatePayment = createAsyncThunk(
   async ({ plan, name, email, getToken, isSignedIn }, { dispatch, rejectWithValue }) => {
     try {
       const token = await getToken();
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const response = await axios.post("https://certiquest-n9al.onrender.com/api/payments/create-order", {
         planId: plan.id,
         amount: plan.price * 100,
@@ -67,6 +71,10 @@ export const verifyPayment = createAsyncThunk(
   async ({ response, plan, getToken, isSignedIn }, { dispatch, rejectWithValue }) => {
     try {
       const token = await getToken();
+      if (!token) {
+      console.log("Token not ready yet");
+      return;
+      }
       const verifyResponse = await axios.post('https://certiquest-n9al.onrender.com/api/payments/verify-payment', {
         razorpay_order_id: response.razorpay_order_id,
         razorpay_payment_id: response.razorpay_payment_id,
