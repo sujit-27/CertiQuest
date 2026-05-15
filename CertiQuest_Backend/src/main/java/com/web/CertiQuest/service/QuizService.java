@@ -252,6 +252,7 @@ public class QuizService {
         boolean questionCountChanged = quiz.getNoOfQuestions() != noOfQuestions;
 
         if (difficultyChanged || questionCountChanged) {
+            quiz.setId(id);
             quiz.setDifficulty(difficulty);
             quiz.setNoOfQuestions(noOfQuestions);
             List<QuizQuestion> newQuestions = quizQuestionService.getOrCreateQuiz(
