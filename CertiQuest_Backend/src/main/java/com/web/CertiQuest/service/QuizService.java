@@ -251,7 +251,7 @@ public class QuizService {
         boolean difficultyChanged = !quiz.getDifficulty().equals(difficulty);
         boolean questionCountChanged = quiz.getNoOfQuestions() != noOfQuestions;
 
-        if (difficultyChanged || questionCountChanged) {
+       if (difficultyChanged || questionCountChanged) {
             quiz.setId(id);
             quiz.setDifficulty(difficulty);
             quiz.setNoOfQuestions(noOfQuestions);
@@ -259,8 +259,12 @@ public class QuizService {
                     quiz.getCategory(), difficulty, noOfQuestions
             );
             quiz.getQuestions().clear();
-            quiz.getQuestions().addAll(newQuestions);
-        }
+
+            for (QuizQuestion question : newQuestions) {
+                question.setQuiz(quiz);
+                quiz.getQuestions().add(question);
+            }
+       }
 
         Quiz updatedQuiz = quizDao.save(quiz);
 
